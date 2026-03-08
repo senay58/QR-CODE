@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ShoppingCart, Plus, Minus, CheckCircle2, Tag, X } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, CheckCircle2, Tag, X, Flame } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────
 interface Extra {
@@ -41,6 +41,8 @@ const AdminPOS = () => {
     const [submitting, setSubmitting] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState('');
+    const [orderSource, setOrderSource] = useState<'walkin' | 'apartment'>('walkin');
+    const [deliveryMethod, setDeliveryMethod] = useState<'room' | 'pickup'>('room');
 
     // Staff
     const [staffList, setStaffList] = useState<any[]>([]);
@@ -148,10 +150,10 @@ const AdminPOS = () => {
             const { data: orderData, error: orderError } = await supabase
                 .from('orders')
                 .insert([{
-                    table_number: tableNumber,
+                    table_number: orderSource === 'walkin' ? tableNumber : `${tableNumber} (${deliveryMethod === 'room' ? 'Room' : 'Pickup'})`,
                     status: 'pending',
                     total_amount: cartTotal,
-                    source: 'pos',
+                    source: orderSource,
                     staff_name: selectedStaff || 'POS Admin'
                 }])
                 .select().single();
@@ -315,12 +317,47 @@ const AdminPOS = () => {
                         </div>
 
                         <div>
-                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1 block">Table / Room</label>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1.5 block">Order Source</label>
+                            <div className="flex gap-1 p-1 bg-secondary rounded-lg mb-3">
+                                <button
+                                    onClick={() => setOrderSource('walkin')}
+                                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${orderSource === 'walkin' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-card'}`}
+                                >
+                                    Walk-in
+                                </button>
+                                <button
+                                    onClick={() => setOrderSource('apartment')}
+                                    className={`flex-1 py-1.5 rounded-md text-[10px] font-black uppercase transition-all ${orderSource === 'apartment' ? 'bg-primary text-white shadow-sm' : 'text-muted-foreground hover:bg-card'}`}
+                                >
+                                    Apartment
+                                </button>
+                            </div>
+
+                            {orderSource === 'apartment' && (
+                                <div className="flex gap-1 p-1 bg-secondary rounded-lg mb-3">
+                                    <button
+                                        onClick={() => setDeliveryMethod('room')}
+                                        className={`flex-1 py-1 rounded-md text-[9px] font-black uppercase transition-all ${deliveryMethod === 'room' ? 'bg-card text-primary shadow-sm border border-primary/20' : 'text-muted-foreground'}`}
+                                    >
+                                        Room
+                                    </button>
+                                    <button
+                                        onClick={() => setDeliveryMethod('pickup')}
+                                        className={`flex-1 py-1 rounded-md text-[9px] font-black uppercase transition-all ${deliveryMethod === 'pickup' ? 'bg-card text-primary shadow-sm border border-primary/20' : 'text-muted-foreground'}`}
+                                    >
+                                        Pickup
+                                    </button>
+                                </div>
+                            )}
+
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-1 block">
+                                {orderSource === 'walkin' ? 'Table Number' : 'Room Number'}
+                            </label>
                             <input
                                 type="text"
                                 value={tableNumber}
                                 onChange={e => setTableNumber(e.target.value)}
-                                placeholder="e.g. Table 5, Room 402"
+                                placeholder={orderSource === 'walkin' ? "e.g. Table 5" : "e.g. 402"}
                                 className="w-full p-2.5 rounded-lg border border-border bg-card focus:ring-2 focus:ring-primary outline-none text-sm"
                             />
                         </div>

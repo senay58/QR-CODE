@@ -116,8 +116,15 @@ const CustomerMenu = () => {
 
         const fetchOrders = async () => {
             const { data } = await supabase
-                .from('orders')
-                .select('*')
+                .select(`
+                    *,
+                    order_items (
+                        quantity,
+                        item_price,
+                        extras_snapshot,
+                        menu_items ( name )
+                    )
+                `)
                 .ilike('table_number', `${entityId}%`)
                 .in('status', ['pending', 'preparing', 'completed'])
                 .order('created_at', { ascending: false })
@@ -129,9 +136,15 @@ const CustomerMenu = () => {
                     const prevStatus = prevStatusRef.current[order.id];
                     if (prevStatus && prevStatus !== order.status) {
                         if (order.status === 'preparing') {
-                            setNotification({ title: '🍳 Cooking Started!', message: `The kitchen has started preparing order #${order.id.substring(0, 6)}` });
+                            setNotification({ title: '🍳 Cooking Started!', message: `The kitchen has started preparing your delicious meal!` });
                         } else if (order.status === 'completed') {
-                            setNotification({ title: '✅ Order Ready!', message: `Order #${order.id.substring(0, 6)} is ready for pickup or being served!` });
+                            const isDelivery = order.table_number.toLowerCase().includes('room');
+                            setNotification({
+                                title: isDelivery ? '🚚 Food on the Way!' : '✅ Pickup is Ready!',
+                                message: isDelivery
+                                    ? "Your food is on the way! We'll be at your door in a moment."
+                                    : "Don't let your food get cold! Your order is ready for pickup at the counter."
+                            });
                         }
                     }
                     prevStatusRef.current[order.id] = order.status;
@@ -171,8 +184,15 @@ const CustomerMenu = () => {
         const interval = setInterval(() => {
             const fetchOrders = async () => {
                 const { data } = await supabase
-                    .from('orders')
-                    .select('*')
+                    .select(`
+                        *,
+                        order_items (
+                            quantity,
+                            item_price,
+                            extras_snapshot,
+                            menu_items ( name )
+                        )
+                    `)
                     .ilike('table_number', `${entityId}%`)
                     .in('status', ['pending', 'preparing', 'completed'])
                     .order('created_at', { ascending: false })
@@ -183,9 +203,15 @@ const CustomerMenu = () => {
                         const prevStatus = prevStatusRef.current[order.id];
                         if (prevStatus && prevStatus !== order.status) {
                             if (order.status === 'preparing') {
-                                setNotification({ title: '🍳 Cooking Started!', message: `The kitchen has started preparing order #${order.id.substring(0, 6)}` });
+                                setNotification({ title: '🍳 Cooking Started!', message: `Your meal is being prepared right now!` });
                             } else if (order.status === 'completed') {
-                                setNotification({ title: '✅ Order Ready!', message: `Order #${order.id.substring(0, 6)} is ready!` });
+                                const isDelivery = order.table_number.toLowerCase().includes('room');
+                                setNotification({
+                                    title: isDelivery ? '🚚 Food on the Way!' : '✅ Pickup is Ready!',
+                                    message: isDelivery
+                                        ? "Your food is on the way! Fresh and hot."
+                                        : "Your order is ready at the counter. Friendly tip: Eat it while it's hot!"
+                                });
                             }
                         }
                         prevStatusRef.current[order.id] = order.status;
@@ -347,7 +373,9 @@ const CustomerMenu = () => {
     );
 
     return (
-        <div className="min-h-screen bg-transparent text-foreground pb-32 font-sans selection:bg-primary/20">
+        <div className="min-h-screen bg-transparent text-foreground pb-32 font-sans selection:bg-primary/20 relative">
+            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-secondary/30 -z-10 pointer-events-none" />
+            <div className="fixed top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] -z-10 pointer-events-none" />
 
             {/* ── Header ── */}
             <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
@@ -606,16 +634,26 @@ const CustomerMenu = () => {
                                 </div>
                             ) : (
                                 activeOrders.map(order => (
-                                    <div key={order.id} className="bg-secondary/30 p-4 rounded-2xl border border-border relative overflow-hidden">
-                                        <div className="flex justify-between items-start mb-1">
-                                            <span className="font-black text-sm text-foreground tracking-tight">Order #{order.id.substring(0, 6)}</span>
-                                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${order.status === 'preparing' ? 'bg-orange-500 text-white' : order.status === 'completed' ? 'bg-green-500 text-white' : 'bg-blue-500 text-white'}`}>
+                                    <div key={order.id} className="bg-secondary/30 p-4 rounded-2xl border border-border relative overflow-hidden ring-1 ring-border/50">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <span className="font-black text-xs text-foreground tracking-tight opacity-50 uppercase">Order #{order.id.substring(0, 4)}</span>
+                                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${order.status === 'preparing' ? 'bg-orange-500 text-white' : order.status === 'completed' ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-blue-500 text-white'}`}>
                                                 {order.status === 'completed' ? 'ready' : order.status}
                                             </span>
                                         </div>
-                                        <div className="flex justify-between items-center text-sm font-medium text-muted-foreground mt-2">
-                                            <span className="text-foreground/80 font-bold">ETB {order.total_amount?.toFixed(2)}</span>
-                                            <span>{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+
+                                        {/* Row with food names */}
+                                        <div className="space-y-1 mb-3">
+                                            {order.order_items?.map((item: any, idx: number) => (
+                                                <div key={idx} className="flex justify-between text-xs font-bold text-foreground/80">
+                                                    <span>{item.quantity}x {item.menu_items?.name}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+
+                                        <div className="flex justify-between items-center text-sm font-medium text-muted-foreground">
+                                            <span className="text-primary font-black">ETB {order.total_amount?.toFixed(0)}</span>
+                                            <span className="text-[10px] font-bold opacity-40">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
                                         <div className="w-full bg-border h-1.5 rounded-full mt-3 overflow-hidden">
                                             <div className={`h-full rounded-full transition-all duration-1000 ${order.status === 'preparing' ? 'bg-primary w-2/3' : order.status === 'completed' ? 'bg-green-500 w-full' : 'bg-blue-500 w-1/3'}`} />

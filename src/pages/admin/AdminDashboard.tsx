@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, UtensilsCrossed, QrCode, Settings, FileText, Menu, X as CloseIcon } from 'lucide-react';
+import { LogOut, LayoutDashboard, UtensilsCrossed, QrCode, Settings, FileText, Menu, X as CloseIcon, Flame } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { ThemeToggle } from '../../components/ThemeToggle';
 
@@ -17,12 +17,13 @@ const AdminDashboard = () => {
 
     const handleLogout = async () => {
         const { error } = await supabase.auth.signOut();
-        if (!error) navigate('/admin-login');
+        if (!error) navigate('/admin/login');
     };
 
     const navItems = [
         { to: "/admin", icon: LayoutDashboard, label: "Overview" },
         { to: "/admin/pos", icon: UtensilsCrossed, label: "POS" },
+        { to: "/admin/kitchen", icon: Flame, label: "Kitchen" },
         { to: "/admin/menu", icon: UtensilsCrossed, label: "Menu Editor" },
         { to: "/admin/qr", icon: QrCode, label: "QR Codes" },
         { to: "/admin/reports", icon: FileText, label: "Reports" },
