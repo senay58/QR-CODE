@@ -7,6 +7,7 @@ import {
     Utensils,
     Hash,
     Navigation,
+    Home,
     RefreshCw,
     Check
 } from 'lucide-react';

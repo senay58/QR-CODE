@@ -8,6 +8,7 @@ import AdminQR from './pages/admin/AdminQR';
 import AdminMenu from './pages/admin/AdminMenu';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminReports from './pages/admin/AdminReports';
+import AdminKitchen from './pages/admin/AdminKitchen';
 import { AuthProvider } from './hooks/useAuth';
 import { ProtectedRoute } from './components/ProtectedRoute';
 
@@ -32,6 +33,7 @@ function App() {
             <Route path="qr" element={<AdminQR />} />
             <Route path="settings" element={<AdminSettings />} />
             <Route path="reports" element={<AdminReports />} />
+            <Route path="kitchen" element={<AdminKitchen />} />
           </Route>
 
           {/* Fallback */}
