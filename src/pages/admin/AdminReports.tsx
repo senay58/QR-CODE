@@ -181,7 +181,7 @@ const AdminReports = () => {
                             <th className="px-6 py-4">Order ID</th>
                             <th className="px-6 py-4">Location</th>
                             <th className="px-6 py-4">Staff/Waiter</th>
-                            <th className="px-6 py-4">Items</th>
+                            <th className="px-6 py-4 min-w-[200px]">Items</th>
                             <th className="px-6 py-4">Source</th>
                             <th className="px-6 py-4">Amount</th>
                             <th className="px-6 py-4 text-right">Status</th>

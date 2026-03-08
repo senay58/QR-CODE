@@ -127,7 +127,7 @@ const CustomerMenu = () => {
                     )
                 `)
                 .ilike('table_number', `${entityId}%`)
-                .in('status', ['pending', 'preparing', 'completed'])
+                .in('status', ['pending', 'preparing', 'completed', 'cancelled'])
                 .order('created_at', { ascending: false })
                 .limit(5);
 
@@ -145,6 +145,11 @@ const CustomerMenu = () => {
                                 message: isDelivery
                                     ? "Your food is on the way! We'll be at your door in a moment."
                                     : "Don't let your food get cold! Your order is ready for pickup at the counter."
+                            });
+                        } else if (order.status === 'cancelled') {
+                            setNotification({
+                                title: '❌ Order Cancelled',
+                                message: `Your order #${order.id.substring(0, 4)} has been cancelled. Please contact staff.`
                             });
                         }
                     }
@@ -196,7 +201,7 @@ const CustomerMenu = () => {
                         )
                     `)
                     .ilike('table_number', `${entityId}%`)
-                    .in('status', ['pending', 'preparing', 'completed'])
+                    .in('status', ['pending', 'preparing', 'completed', 'cancelled'])
                     .order('created_at', { ascending: false })
                     .limit(5);
 
@@ -213,6 +218,11 @@ const CustomerMenu = () => {
                                     message: isDelivery
                                         ? "Your food is on the way! Fresh and hot."
                                         : "Your order is ready at the counter. Friendly tip: Eat it while it's hot!"
+                                });
+                            } else if (order.status === 'cancelled') {
+                                setNotification({
+                                    title: '❌ Order Cancelled',
+                                    message: `Order #${order.id.substring(0, 4)} was cancelled.`
                                 });
                             }
                         }
@@ -639,7 +649,7 @@ const CustomerMenu = () => {
                                     <div key={order.id} className="bg-secondary/30 p-4 rounded-2xl border border-border relative overflow-hidden ring-1 ring-border/50">
                                         <div className="flex justify-between items-start mb-2">
                                             <span className="font-black text-xs text-foreground tracking-tight opacity-50 uppercase">Order #{order.id.substring(0, 4)}</span>
-                                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${order.status === 'preparing' ? 'bg-orange-500 text-white' : order.status === 'completed' ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : 'bg-blue-500 text-white'}`}>
+                                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-full uppercase tracking-widest ${order.status === 'preparing' ? 'bg-orange-500 text-white' : order.status === 'completed' ? 'bg-green-500 text-white shadow-lg shadow-green-500/20' : order.status === 'cancelled' ? 'bg-red-500 text-white' : 'bg-blue-500 text-white'}`}>
                                                 {order.status === 'completed' ? 'ready' : order.status}
                                             </span>
                                         </div>
@@ -658,7 +668,7 @@ const CustomerMenu = () => {
                                             <span className="text-[10px] font-bold opacity-40">{new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                                         </div>
                                         <div className="w-full bg-border h-1.5 rounded-full mt-3 overflow-hidden">
-                                            <div className={`h-full rounded-full transition-all duration-1000 ${order.status === 'preparing' ? 'bg-primary w-2/3' : order.status === 'completed' ? 'bg-green-500 w-full' : 'bg-blue-500 w-1/3'}`} />
+                                            <div className={`h-full rounded-full transition-all duration-1000 ${order.status === 'preparing' ? 'bg-primary w-2/3' : order.status === 'completed' ? 'bg-green-500 w-full' : order.status === 'cancelled' ? 'bg-red-500 w-full' : 'bg-blue-500 w-1/3'}`} />
                                         </div>
                                     </div>
                                 ))
