@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
-import { ShoppingCart, Plus, Minus, CheckCircle2, Tag, X, Flame } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, CheckCircle2, Tag, X } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────
 interface Extra {

@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
-    Clock,
     CheckCircle2,
-    Flame,
+    Flame, // Flame is used in the header, so it should not be removed.
     Utensils,
     Hash,
     Navigation,
