@@ -278,9 +278,9 @@ const CustomerMenu = () => {
             setCallSuccess(true);
             fetchOrderCount();
             setTimeout(() => setCallSuccess(false), 5000);
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
-            alert('Failed to place order.');
+            alert(`Failed to place order: ${e.message || 'Unknown error'}`);
         } finally {
             setCallingWaiter(false);
         }
