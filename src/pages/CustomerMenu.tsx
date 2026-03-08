@@ -116,6 +116,7 @@ const CustomerMenu = () => {
 
         const fetchOrders = async () => {
             const { data } = await supabase
+                .from('orders')
                 .select(`
                     *,
                     order_items (
@@ -184,6 +185,7 @@ const CustomerMenu = () => {
         const interval = setInterval(() => {
             const fetchOrders = async () => {
                 const { data } = await supabase
+                    .from('orders')
                     .select(`
                         *,
                         order_items (
@@ -373,8 +375,8 @@ const CustomerMenu = () => {
     );
 
     return (
-        <div className="min-h-screen bg-transparent text-foreground pb-32 font-sans selection:bg-primary/20 relative">
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-primary/10 via-background to-secondary/30 -z-10 pointer-events-none" />
+        <div className="min-h-screen bg-background text-foreground pb-32 font-sans selection:bg-primary/20 relative">
+            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.1)_0%,_transparent_70%)] pointer-events-none -z-10" />
             <div className="fixed top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] -z-10 pointer-events-none" />
 
             {/* ── Header ── */}
