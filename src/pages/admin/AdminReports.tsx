@@ -416,11 +416,11 @@ const AdminReports = () => {
                 __html: `
                 @media print {
                     @page { size: portrait; margin: 0.5in; }
-                    html, body, #root, .h-screen, main, .w-full, .max-w-7xl { height: auto !important; overflow: visible !important; position: static !important; max-width: none !important; width: 100% !important; min-width: 100% !important; }
-                    aside, .no-print, button, #theme-toggle, .shadow-sm, .fixed, .sticky { display: none !important; opacity: 0 !important; }
-                    body { background: white !important; color: black !important; font-family: 'Inter', system-ui, sans-serif; margin: 0; padding: 0; font-size: 8pt; }
+                    html, body, #root, .h-screen, main, .w-full, .max-w-7xl { height: auto !important; overflow: visible !important; position: static !important; max-width: none !important; width: 100% !important; min-width: 100% !important; border: none !important; }
+                    aside, .no-print, button, #theme-toggle, .shadow-sm, .fixed, .sticky, nav, header, [role="navigation"], .lg\\:hidden, .print\\:hidden { display: none !important; opacity: 0 !important; visibility: hidden !important; width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }
+                    body { background: white !important; color: black !important; font-family: 'Inter', system-ui, sans-serif; margin: 0; padding: 0 !important; font-size: 8pt; }
                     .space-y-6 > * + * { margin-top: 15px !important; }
-                    main { padding: 0 !important; margin: 0 !important; display: block !important; overflow: visible !important; box-shadow: none !important; border: none !important; }
+                    main { padding: 0 !important; margin: 0 !important; display: block !important; overflow: visible !important; box-shadow: none !important; border: none !important; background: transparent !important; }
                     .print-header { display: block !important; visibility: visible !important; opacity: 1 !important; margin-bottom: 20px !important; border-bottom: 2px solid #2EA066 !important; padding-bottom: 12px !important; text-align: center; }
                     .print-header h1 { font-size: 20pt !important; margin: 0; }
                     .bg-card, .bg-secondary\\/30, .bg-secondary\\/50 { background: white !important; border: 1px solid #ddd !important; display: block !important; opacity: 1 !important; visibility: visible !important; border-radius: 4px !important; box-shadow: none !important; overflow: visible !important; page-break-inside: avoid; margin-bottom: 12px; width: 100% !important; max-width: none !important; padding: 8px !important; }
@@ -438,17 +438,15 @@ const AdminReports = () => {
                     th:nth-child(6), td:nth-child(6) { width: 8%; }  /* Source */
                     th:nth-child(7), td:nth-child(7) { width: 7%; }  /* Amount */
                     th:nth-child(8), td:nth-child(8) { width: 8%; }  /* Status */
-
                     .text-primary { color: #2EA066 !important; }
                     .mt-6 { margin-top: 15px !important; }
                     .grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 6px !important; }
                     .grid > div { page-break-inside: avoid; border: 1px solid #eee !important; padding: 6px !important; }
-
-                    /* Force sidebar parent to not limit width */
-                    .flex.h-screen { display: block !important; height: auto !important; }
-                    main.flex-1 { display: block !important; width: 100% !important; max-width: 100% !important; }
+                    /* Force layout reset */
+                    .flex, .flex-1, .h-screen { display: block !important; width: 100% !important; max-width: 100% !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
                 }
-            `}} />
+                `
+            }} />
         </div>
     );
 };

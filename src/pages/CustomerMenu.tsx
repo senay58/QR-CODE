@@ -401,9 +401,9 @@ const CustomerMenu = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background text-foreground pb-36 font-sans selection:bg-primary/20 relative">
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.1)_0%,_transparent_70%)] pointer-events-none -z-20" />
-            <div className="fixed top-0 left-0 w-full h-full opacity-[0.05] dark:opacity-[0.03] -z-10 pointer-events-none bg-repeat" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='20' y='50' font-size='24' opacity='0.7'%3E%F0%9F%8D%94%3C/text%3E%3Ctext x='120' y='90' font-size='24' opacity='0.7'%3E%F0%9F%8D%95%3C/text%3E%3Ctext x='40' y='160' font-size='24' opacity='0.7'%3E%F0%9F%A5%97%3C/text%3E%3Ctext x='150' y='180' font-size='24' opacity='0.7'%3E%F0%9F%A5%AA%3C/text%3E%3Ctext x='80' y='120' font-size='24' opacity='0.7'%3E%F0%9F%8D%9F%3C/text%3E%3Ctext x='180' y='30' font-size='24' opacity='0.7'%3E%F0%9F%A5%A4%3C/text%3E%3Ctext x='10' y='110' font-size='24' opacity='0.7'%3E%E2%98%95%3C/text%3E%3Ctext x='100' y='20' font-size='24' opacity='0.7'%3E%F0%9F%8C%AD%3C/text%3E%3C/svg%3E")`, backgroundSize: '150px' }} />
+        <div className="min-h-screen bg-background/95 text-foreground pb-36 font-sans selection:bg-primary/20 relative overflow-x-hidden">
+            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.15)_0%,_transparent_70%)] pointer-events-none -z-20" />
+            <div className="fixed top-0 left-0 w-full h-full opacity-[0.12] dark:opacity-[0.08] -z-10 pointer-events-none bg-repeat" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='20' y='50' font-size='28' opacity='0.8'%3E%F0%9F%8D%94%3C/text%3E%3Ctext x='120' y='90' font-size='28' opacity='0.8'%3E%F0%9F%8D%95%3C/text%3E%3Ctext x='40' y='160' font-size='28' opacity='0.8'%3E%F0%9F%A5%97%3C/text%3E%3Ctext x='150' y='180' font-size='28' opacity='0.8'%3E%F0%9F%A5%AA%3C/text%3E%3Ctext x='80' y='120' font-size='28' opacity='0.8'%3E%F0%9F%8D%9F%3C/text%3E%3Ctext x='180' y='30' font-size='28' opacity='0.8'%3E%F0%9F%A5%A4%3C/text%3E%3Ctext x='10' y='110' font-size='28' opacity='1'%3E%E2%98%95%3C/text%3E%3Ctext x='100' y='20' font-size='28' opacity='0.8'%3E%F0%9F%8D%BA%3C/text%3E%3Ctext x='140' y='40' font-size='28' opacity='0.8'%3E%F0%9F%8D%B7%3C/text%3E%3C/svg%3E")`, backgroundSize: '180px' }} />
 
             {/* ── Header ── */}
             <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
@@ -488,12 +488,12 @@ const CustomerMenu = () => {
             {/* ── Menu List ── */}
             <main className="max-w-3xl mx-auto p-4 space-y-4">
                 {loadingMenu ? (
-                    [1, 2, 3].map(n => <div key={n} className="bg-card/90 backdrop-blur-sm flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/60 animate-pulse h-32" />)
+                    [1, 2, 3].map(n => <div key={n} className="bg-card/70 backdrop-blur-md flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/40 animate-pulse h-32" />)
                 ) : currentItems.length > 0 ? (
                     currentItems.map((item) => (
-                        <div key={item.id} className="bg-card/90 backdrop-blur-sm flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/60 hover:shadow-md transition-all active:scale-[0.98]">
+                        <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
                             {/* Image */}
-                            <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/50 overflow-hidden relative border border-border/50 shadow-inner">
+                            <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
                                 {item.image_url ? (
                                     <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                                 ) : (
