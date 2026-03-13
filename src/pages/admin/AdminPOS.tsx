@@ -82,8 +82,6 @@ const AdminPOS = () => {
     const topLevelCats = categories.filter(c => !c.parent_id);
     const subCats = categories.filter(c => c.parent_id === activeCategory);
 
-    // Item filter: show items from active (sub)category, and items with extra_category_ids matching
-    const effectiveCatId = activeSubCategory || activeCategory;
     const currentItems = items.filter(i => {
         if (i.is_active === false) return false;
         if (activeSubCategory) {
