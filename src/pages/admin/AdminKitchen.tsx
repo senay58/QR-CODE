@@ -8,7 +8,8 @@ import {
     Navigation,
     Home,
     RefreshCw,
-    Check
+    Check,
+    Truck
 } from 'lucide-react';
 
 interface OrderItem {
@@ -23,7 +24,7 @@ interface Order {
     table_number: string;
     status: 'pending' | 'preparing' | 'completed' | 'cancelled';
     total_amount: number;
-    source: 'apartment' | 'walkin' | 'pos' | null;
+    source: 'apartment' | 'walkin' | 'pos' | 'delivery' | null;
     created_at: string;
     order_items: OrderItem[];
 }
@@ -146,8 +147,17 @@ const AdminKitchen = () => {
                                         </span>
                                     </div>
                                     <h3 className="text-2xl font-black flex items-center gap-2">
-                                        {order.source === 'apartment' ? <Home size={20} /> : <Navigation size={20} />}
-                                        {order.table_number}
+                                        {order.source === 'apartment' ? <Home size={20} /> : order.source === 'delivery' ? <Truck size={20} /> : <Navigation size={20} />}
+                                        <span className={
+                                            order.source === 'delivery' ? (
+                                                order.table_number.toUpperCase().includes('BEU DELIVERY') ? 'text-orange-500' :
+                                                order.table_number.toUpperCase().includes('DELIVER ADDIS') ? 'text-red-500' :
+                                                order.table_number.toUpperCase().includes('Z-MALL') ? 'text-blue-500' :
+                                                order.table_number.toUpperCase().includes('KLIK') ? 'text-yellow-500' : ''
+                                            ) : ''
+                                        }>
+                                            {order.table_number}
+                                        </span>
                                     </h3>
                                 </div>
                                 <div className="text-right">

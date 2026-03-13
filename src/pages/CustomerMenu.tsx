@@ -21,9 +21,8 @@ interface CartItem {
     extras: CartExtra[];
 }
 
-interface Extra {
+interface GlobalExtra {
     id: string;
-    menu_item_id: string;
     name: string;
     price: number;
 }
@@ -68,6 +67,7 @@ const CustomerMenu = () => {
     const [menuItems, setMenuItems] = useState<any[]>([]);
     const [loadingMenu, setLoadingMenu] = useState(true);
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
+    const [activeSubCategory, setActiveSubCategory] = useState<string | null>(null);
 
     const [callingWaiter, setCallingWaiter] = useState(false);
     const [callSuccess, setCallSuccess] = useState(false);
@@ -85,8 +85,8 @@ const CustomerMenu = () => {
     const prevStatusRef = useRef<Record<string, string>>({});
 
     // --- Extras ---
-    const [allExtras, setAllExtras] = useState<Extra[]>([]);
-    const [extrasModal, setExtrasModal] = useState<{ item: any; availableExtras: Extra[] } | null>(null);
+    const [allExtras, setAllExtras] = useState<GlobalExtra[]>([]);
+    const [extrasModal, setExtrasModal] = useState<{ item: any; availableExtras: GlobalExtra[] } | null>(null);
     const [selectedExtras, setSelectedExtras] = useState<CartExtra[]>([]);
     const [deliveryMethod, setDeliveryMethod] = useState<'pickup' | 'room'>('room');
 
@@ -96,12 +96,14 @@ const CustomerMenu = () => {
             setLoadingMenu(true);
             const [catsRes, itemsRes, extrasRes] = await Promise.all([
                 supabase.from('categories').select('*').order('sort_order', { ascending: true }),
-                supabase.from('menu_items').select('*').order('name', { ascending: true }),
-                supabase.from('extras').select('*').order('name', { ascending: true })
+                supabase.from('menu_items').select('*').order('sort_order', { ascending: true }),
+                supabase.from('global_extras').select('*').order('name', { ascending: true })
             ]);
             if (catsRes.data && catsRes.data.length > 0) {
                 setCategories(catsRes.data);
-                setActiveCategory(catsRes.data[0].id);
+                // Set first top-level category as active
+                const firstTop = catsRes.data.find((c: any) => !c.parent_id);
+                if (firstTop) setActiveCategory(firstTop.id);
             }
             if (itemsRes.data) setMenuItems(itemsRes.data);
             if (extrasRes.data) setAllExtras(extrasRes.data);
@@ -260,7 +262,7 @@ const CustomerMenu = () => {
     };
 
     const handleOpenExtras = (item: any) => {
-        const available = allExtras.filter(e => e.menu_item_id === item.id);
+        const available = allExtras.filter(e => item.allowed_global_extras?.includes(e.id));
         if (available.length > 0) {
             setExtrasModal({ item, availableExtras: available });
             setSelectedExtras([]);
@@ -269,7 +271,7 @@ const CustomerMenu = () => {
         }
     };
 
-    const toggleExtra = (extra: Extra) => {
+    const toggleExtra = (extra: GlobalExtra) => {
         setSelectedExtras(prev => {
             const exists = prev.find(e => e.id === extra.id);
             return exists ? prev.filter(e => e.id !== extra.id) : [...prev, { id: extra.id, name: extra.name, price: extra.price }];
@@ -371,7 +373,21 @@ const CustomerMenu = () => {
         }
     };
 
-    const currentItems = menuItems.filter(i => i.category_id === activeCategory && i.is_active !== false);
+    // Subcategories of the currently active top-level category
+    const subCategories = categories.filter(c => c.parent_id === activeCategory);
+
+    const currentItems = menuItems.filter(i =>
+        i.is_active !== false &&
+        (
+            // Show all items under parent + its subcategories when "All" is active
+            activeSubCategory
+                ? i.category_id === activeSubCategory ||
+                  (i.extra_category_ids && i.extra_category_ids.includes(activeSubCategory))
+                : i.category_id === activeCategory ||
+                  (i.extra_category_ids && i.extra_category_ids.includes(activeCategory)) ||
+                  subCategories.some(sub => i.category_id === sub.id)
+        )
+    );
 
     const renderStars = (rating: number, count: number) => (
         <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
@@ -385,9 +401,9 @@ const CustomerMenu = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background text-foreground pb-32 font-sans selection:bg-primary/20 relative">
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.1)_0%,_transparent_70%)] pointer-events-none -z-10" />
-            <div className="fixed top-0 left-0 w-full h-full bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-[0.03] -z-10 pointer-events-none" />
+        <div className="min-h-screen bg-background text-foreground pb-36 font-sans selection:bg-primary/20 relative">
+            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.1)_0%,_transparent_70%)] pointer-events-none -z-20" />
+            <div className="fixed top-0 left-0 w-full h-full opacity-[0.05] dark:opacity-[0.03] -z-10 pointer-events-none bg-repeat" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='20' y='50' font-size='24' opacity='0.7'%3E%F0%9F%8D%94%3C/text%3E%3Ctext x='120' y='90' font-size='24' opacity='0.7'%3E%F0%9F%8D%95%3C/text%3E%3Ctext x='40' y='160' font-size='24' opacity='0.7'%3E%F0%9F%A5%97%3C/text%3E%3Ctext x='150' y='180' font-size='24' opacity='0.7'%3E%F0%9F%A5%AA%3C/text%3E%3Ctext x='80' y='120' font-size='24' opacity='0.7'%3E%F0%9F%8D%9F%3C/text%3E%3Ctext x='180' y='30' font-size='24' opacity='0.7'%3E%F0%9F%A5%A4%3C/text%3E%3Ctext x='10' y='110' font-size='24' opacity='0.7'%3E%E2%98%95%3C/text%3E%3Ctext x='100' y='20' font-size='24' opacity='0.7'%3E%F0%9F%8C%AD%3C/text%3E%3C/svg%3E")`, backgroundSize: '150px' }} />
 
             {/* ── Header ── */}
             <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
@@ -406,11 +422,11 @@ const CustomerMenu = () => {
                         {activeOrders.length > 0 && (
                             <button
                                 onClick={() => setIsTrackingOpen(true)}
-                                className="p-2 bg-primary/10 text-primary rounded-xl relative hover:bg-primary/20 transition-all border border-primary/20 group"
+                                className="p-2 bg-primary/10 text-primary rounded-xl relative hover:bg-primary/20 transition-all border border-primary/20 group shadow-sm active:scale-95"
                                 aria-label="Track orders"
                             >
-                                <Bell size={22} className="animate-pulse group-hover:animate-none" />
-                                <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[10px] flex items-center justify-center rounded-full font-black ring-2 ring-background shadow-sm">
+                                <Bell size={20} className="animate-pulse group-hover:animate-none" />
+                                <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 bg-primary text-white text-[10px] flex items-center justify-center rounded-full font-black ring-2 ring-background shadow-md">
                                     {activeOrders.length}
                                 </span>
                             </button>
@@ -419,18 +435,18 @@ const CustomerMenu = () => {
                     </div>
                 </div>
 
-                {/* Category Tabs */}
+                {/* Main Category Tabs — top-level only */}
                 <div className="flex overflow-x-auto hide-scrollbar py-2.5 px-4 gap-2 bg-secondary/30 border-t border-border/50">
                     {loadingMenu ? (
                         <div className="text-xs text-muted-foreground animate-pulse py-1.5">Loading categories...</div>
                     ) : (
-                        categories.map(cat => (
+                        categories.filter(c => !c.parent_id).map(cat => (
                             <button
                                 key={cat.id}
-                                onClick={() => setActiveCategory(cat.id)}
-                                className={`whitespace-nowrap px-4 py-2 rounded-full text-sm font-semibold transition-all border shadow-sm ${activeCategory === cat.id
-                                    ? 'bg-primary text-primary-foreground border-primary shadow-md scale-105'
-                                    : 'bg-card text-muted-foreground border-border hover:bg-secondary'
+                                onClick={() => { setActiveCategory(cat.id); setActiveSubCategory(null); }}
+                                className={`whitespace-nowrap px-4 py-2 rounded-2xl text-sm font-bold transition-all border ${activeCategory === cat.id
+                                    ? 'bg-primary text-primary-foreground border-primary shadow-md active:scale-95'
+                                    : 'bg-card/50 text-muted-foreground border-border/50 hover:bg-secondary active:scale-95'
                                     }`}
                             >
                                 {cat.name}
@@ -438,24 +454,58 @@ const CustomerMenu = () => {
                         ))
                     )}
                 </div>
+
+                {/* Subcategory Pills — shown when active category has children */}
+                {!loadingMenu && subCategories.length > 0 && (
+                    <div className="flex overflow-x-auto hide-scrollbar px-4 py-2 gap-2 border-t border-border/30 bg-background/60">
+                        <button
+                            onClick={() => setActiveSubCategory(null)}
+                            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                !activeSubCategory
+                                    ? 'bg-primary/15 text-primary border-primary/40'
+                                    : 'bg-transparent text-muted-foreground border-border hover:bg-secondary'
+                            }`}
+                        >
+                            All
+                        </button>
+                        {subCategories.map(sub => (
+                            <button
+                                key={sub.id}
+                                onClick={() => setActiveSubCategory(activeSubCategory === sub.id ? null : sub.id)}
+                                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                    activeSubCategory === sub.id
+                                        ? 'bg-primary/15 text-primary border-primary/40'
+                                        : 'bg-transparent text-muted-foreground border-border hover:bg-secondary'
+                                }`}
+                            >
+                                {sub.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </header>
 
-            {/* ── Menu Items (List Only) ── */}
-            <main className="p-4 max-w-3xl mx-auto space-y-3">
+            {/* ── Menu List ── */}
+            <main className="max-w-3xl mx-auto p-4 space-y-4">
                 {loadingMenu ? (
-                    [1, 2, 3].map(n => <div key={n} className="bg-card border border-border rounded-3xl p-4 flex gap-4 animate-pulse h-32" />)
+                    [1, 2, 3].map(n => <div key={n} className="bg-card/90 backdrop-blur-sm flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/60 animate-pulse h-32" />)
                 ) : currentItems.length > 0 ? (
-                    currentItems.map(item => (
-                        <div key={item.id} className="bg-card/50 backdrop-blur-xl rounded-2xl shadow-sm border border-border hover:shadow-md hover:border-primary/40 transition-all group overflow-hidden flex gap-3 p-3">
+                    currentItems.map((item) => (
+                        <div key={item.id} className="bg-card/90 backdrop-blur-sm flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/60 hover:shadow-md transition-all active:scale-[0.98]">
                             {/* Image */}
-                            <div className="w-24 h-24 shrink-0 rounded-xl overflow-hidden bg-secondary relative">
+                            <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/50 overflow-hidden relative border border-border/50 shadow-inner">
                                 {item.image_url ? (
                                     <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>
                                 )}
-                                {allExtras.some(e => e.menu_item_id === item.id) && (
-                                    <div className="absolute top-2 right-2 bg-primary/20 backdrop-blur-md text-primary p-1 rounded-full border border-primary/30">
+                                {item.is_fasting && (
+                                    <div className="absolute bottom-2 left-2 bg-green-500/20 backdrop-blur-md text-green-600 dark:text-green-400 p-1 rounded-full border border-green-500/30" title="Fasting Meal">
+                                        🌿
+                                    </div>
+                                )}
+                                {(item.allowed_global_extras && item.allowed_global_extras.length > 0) && (
+                                    <div className="absolute top-2 right-2 bg-primary/20 backdrop-blur-md text-primary p-1 rounded-full border border-primary/30" title="Extras Available">
                                         <Tag size={10} />
                                     </div>
                                 )}
@@ -473,7 +523,7 @@ const CustomerMenu = () => {
                                     </span>
                                 </div>
 
-                                <p className="text-xs text-muted-foreground line-clamp-2 mt-1 uppercase font-bold tracking-tight text-left">{item.description}</p>
+                                <p className="text-xs text-muted-foreground mt-1 uppercase font-bold tracking-tight text-left leading-relaxed">{item.description}</p>
 
                                 <div className="flex items-center justify-between mt-2">
                                     <div className="flex flex-wrap gap-1">
@@ -485,10 +535,10 @@ const CustomerMenu = () => {
                                     </div>
                                     <button
                                         onClick={() => handleOpenExtras(item)}
-                                        className="ml-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-md px-4 py-1.5 text-sm active:scale-95"
+                                        className="ml-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-md px-4 py-2 text-sm active:scale-90"
                                         aria-label="Add to cart"
                                     >
-                                        <Plus size={14} /> Add
+                                        <Plus size={16} /> Add
                                     </button>
                                 </div>
                             </div>
@@ -679,14 +729,14 @@ const CustomerMenu = () => {
             )}
 
             {/* ── Floating Cart Button (Consolidated) ── */}
-            <div className={`fixed bottom-6 left-0 right-0 px-4 pointer-events-none flex justify-center ${isCartOpen ? 'z-[60]' : 'z-40'}`}>
+            <div className={`fixed bottom-6 left-0 right-0 px-4 pointer-events-none flex justify-center ${isCartOpen ? 'z-[60]' : 'z-50'}`}>
                 {cartCount > 0 && !isCartOpen ? (
                     <button
                         onClick={() => setIsCartOpen(true)}
-                        className="pointer-events-auto backdrop-blur-md shadow-2xl border border-white/20 flex items-center justify-between px-6 w-full max-w-sm py-4 rounded-full font-bold text-lg bg-primary/95 text-primary-foreground hover:bg-primary transition-all hover:-translate-y-1 active:scale-95 shadow-lg shadow-primary/20"
+                        className="pointer-events-auto backdrop-blur-xl shadow-2xl border border-white/20 flex items-center justify-between px-6 w-full max-w-sm py-4 rounded-[1.5rem] font-bold text-lg bg-primary/90 text-primary-foreground hover:bg-primary transition-all hover:-translate-y-1 active:scale-95 shadow-primary/30"
                     >
                         <div className="flex items-center gap-2">
-                            <div className="bg-white text-primary w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">{cartCount}</div>
+                            <div className="bg-white text-primary w-6 h-6 rounded-full flex items-center justify-center text-sm font-black shadow-sm">{cartCount}</div>
                             {isApartment ? 'View Order' : 'View Selections'}
                         </div>
                         <span>ETB {cartTotal.toFixed(2)}</span>
@@ -695,11 +745,11 @@ const CustomerMenu = () => {
                     <button
                         onClick={handleCallWaiter}
                         disabled={callingWaiter || callSuccess || tableNumber === 'Unknown'}
-                        className={`pointer-events-auto backdrop-blur-md shadow-2xl border flex items-center justify-center gap-2 w-full max-w-sm py-4 rounded-full font-bold text-lg transition-all active:scale-95 ${callSuccess
-                            ? 'bg-green-500 text-white border-white/20'
+                        className={`pointer-events-auto backdrop-blur-xl shadow-2xl flex items-center justify-center gap-2 w-full max-w-sm py-4 rounded-[1.5rem] font-bold text-lg transition-all active:scale-95 border ${callSuccess
+                            ? 'bg-green-500/90 text-white border-green-500/50'
                             : callingWaiter
                                 ? 'bg-muted/90 text-muted-foreground cursor-wait border-border'
-                                : 'bg-card text-foreground border-border hover:bg-secondary hover:-translate-y-1'
+                                : 'bg-card/90 text-foreground border-border/50 hover:bg-secondary hover:-translate-y-1'
                             }`}
                     >
                         <Bell size={20} className={callingWaiter ? 'animate-pulse' : ''} />

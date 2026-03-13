@@ -39,7 +39,7 @@ const AdminDashboard = () => {
     return (
         <div className="flex h-screen bg-background overflow-hidden font-sans text-foreground">
             {/* Mobile Header */}
-            <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 px-4 flex items-center justify-between">
+            <div className="lg:hidden print:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 px-4 flex items-center justify-between">
                 <h1 className="text-xl font-black tracking-tighter uppercase">
                     S<span className="text-primary">H</span>
                 </h1>
@@ -56,7 +56,7 @@ const AdminDashboard = () => {
 
             {/* Sidebar (Desktop) */}
             <aside
-                className={`hidden lg:flex flex-col bg-card border-r border-border transition-all duration-500 ease-in-out relative z-40 ${isCollapsed ? 'w-20' : 'w-64'}`}
+                className={`hidden lg:flex print:hidden flex-col bg-card border-r border-border transition-all duration-500 ease-in-out relative z-40 ${isCollapsed ? 'w-20' : 'w-64'}`}
             >
                 <div className="p-6">
                     <button

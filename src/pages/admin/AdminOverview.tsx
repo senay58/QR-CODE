@@ -8,7 +8,7 @@ interface Order {
     table_number: string;
     status: 'pending' | 'preparing' | 'completed' | 'cancelled';
     total_amount: number;
-    source: 'apartment' | 'walkin' | 'pos' | null;
+    source: 'apartment' | 'walkin' | 'pos' | 'delivery' | null;
     created_at: string;
     order_items?: {
         quantity: number;
@@ -45,7 +45,7 @@ const AdminOverview = () => {
     const [orders, setOrders] = useState<Order[]>([]);
     const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
     const [totalRevenue, setTotalRevenue] = useState(0);
-    const [ordersTab, setOrdersTab] = useState<'all' | 'apartment' | 'walkin'>('all');
+    const [ordersTab, setOrdersTab] = useState<'all' | 'apartment' | 'walkin' | 'delivery'>('all');
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
@@ -191,6 +191,7 @@ const AdminOverview = () => {
         if (ordersTab === 'all') return true;
         if (ordersTab === 'apartment') return o.source === 'apartment';
         if (ordersTab === 'walkin') return o.source === 'walkin' || o.source === null;
+        if (ordersTab === 'delivery') return o.source === 'delivery';
         return true;
     });
 
@@ -249,15 +250,15 @@ const AdminOverview = () => {
                         </span>
                     </h2>
                     {/* Source filter tabs */}
-                    <div className="flex bg-secondary p-1 rounded-lg self-start sm:self-auto">
-                        {(['all', 'apartment', 'walkin'] as const).map(tab => (
+                    <div className="flex bg-secondary p-1 rounded-lg self-start sm:self-auto overflow-x-auto hide-scrollbar max-w-full">
+                        {(['all', 'apartment', 'walkin', 'delivery'] as const).map(tab => (
                             <button
                                 key={tab}
                                 onClick={() => setOrdersTab(tab)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all capitalize ${ordersTab === tab ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all capitalize whitespace-nowrap ${ordersTab === tab ? 'bg-background shadow text-foreground' : 'text-muted-foreground hover:text-foreground'}`}
                             >
-                                {tab === 'apartment' ? <Home size={12} /> : tab === 'walkin' ? <Users size={12} /> : null}
-                                {tab === 'all' ? 'All' : tab === 'apartment' ? 'Apartments' : 'Walk-ins'}
+                                {tab === 'apartment' ? <Home size={12} /> : tab === 'walkin' ? <Users size={12} /> : tab === 'delivery' ? <Package size={12} /> : null}
+                                {tab === 'all' ? 'All' : tab === 'apartment' ? 'Apartments' : tab === 'walkin' ? 'Walk-ins' : 'Delivery'}
                             </button>
                         ))}
                     </div>
@@ -274,8 +275,19 @@ const AdminOverview = () => {
                             <div key={order.id} className="bg-background border border-border p-4 rounded-xl space-y-3 hover:border-primary/30 transition-colors">
                                 <div className="flex items-start justify-between gap-2">
                                     <div>
-                                        <p className="font-bold text-foreground text-sm">
-                                            {order.source === 'apartment' ? '🏠' : '🪑'} {order.source === 'apartment' ? 'Room' : 'Table'} {order.table_number}
+                                        <p className="font-bold text-foreground text-sm flex items-center gap-1">
+                                            {order.source === 'delivery' ? '🚚' : order.source === 'apartment' ? '🏠' : '🪑'}
+                                            <span className={
+                                                order.source === 'delivery' ? (
+                                                    order.table_number.toUpperCase().includes('BEU DELIVERY') ? 'text-orange-500' :
+                                                    order.table_number.toUpperCase().includes('DELIVER ADDIS') ? 'text-red-500' :
+                                                    order.table_number.toUpperCase().includes('Z-MALL') ? 'text-blue-500' :
+                                                    order.table_number.toUpperCase().includes('KLIK') ? 'text-yellow-500' : ''
+                                                ) : ''
+                                            }>
+                                                {order.source === 'apartment' ? 'Room ' : order.source === 'walkin' ? 'Table ' : ''}
+                                                {order.table_number}
+                                            </span>
                                         </p>
                                         <p className="text-xs text-muted-foreground">#{order.id.substring(0, 8)}</p>
                                     </div>
