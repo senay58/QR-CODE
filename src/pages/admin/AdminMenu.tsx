@@ -54,8 +54,8 @@ const SortableItem = ({ item, itemExtras, isExpanded, onExpand, onEdit, onDelete
                     <GripVertical size={18} />
                 </div>
 
-                <div className="w-14 h-14 rounded-lg bg-secondary overflow-hidden shrink-0 flex items-center justify-center text-lg">
-                    {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : '🥪'}
+                <div className="w-14 h-14 rounded-lg bg-secondary overflow-hidden shrink-0 flex items-center justify-center text-lg text-muted-foreground font-black uppercase text-[10px]">
+                    {item.image_url ? <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" /> : 'No Img'}
                 </div>
 
                 <div className="flex-1 min-w-0">
@@ -642,7 +642,7 @@ const AdminMenu = () => {
                                         className="w-4 h-4 accent-green-600 rounded bg-background border-border"
                                     />
                                     <span className="text-sm font-bold text-foreground group-hover:text-green-600 transition-colors flex items-center gap-1.5">
-                                        🌿 Mark as Fasting Meal
+                                        Mark as Fasting Meal
                                     </span>
                                 </label>
 
@@ -711,16 +711,38 @@ const AdminMenu = () => {
                             
                             return (
                                 <div key={category.id} className="space-y-3 mb-8">
-                                    <button 
-                                        onClick={() => toggleCategoryCollapse(category.id)}
-                                        className={`w-full text-left text-sm font-black text-muted-foreground uppercase tracking-[0.2em] pt-4 flex items-center justify-between border-b border-border pb-2 sticky top-0 bg-background z-10 hover:text-foreground transition-colors ${isSubcat ? 'ml-4 text-xs opacity-70' : ''}`}
-                                    >
-                                        <span className="flex items-center gap-2">
-                                            {isSubcat ? <FolderTree size={12} className={isCollapsed ? "text-muted-foreground" : "text-primary"} /> : <Tag size={14} className={isCollapsed ? "text-muted-foreground" : "text-primary"} />}
-                                            {category.name}
-                                        </span>
-                                        {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
-                                    </button>
+                                    <div className="flex items-center justify-between border-b border-border pb-2 sticky top-0 bg-background z-10 group/cat">
+                                        <button 
+                                            onClick={() => toggleCategoryCollapse(category.id)}
+                                            className={`text-left text-sm font-black text-muted-foreground uppercase tracking-[0.2em] pt-4 flex items-center gap-2 hover:text-foreground transition-colors ${isSubcat ? 'ml-4 text-xs opacity-70' : ''}`}
+                                        >
+                                            <span className="flex items-center gap-2">
+                                                {isSubcat ? <FolderTree size={12} className={isCollapsed ? "text-muted-foreground" : "text-primary"} /> : <Tag size={14} className={isCollapsed ? "text-muted-foreground" : "text-primary"} />}
+                                                {category.name}
+                                            </span>
+                                            {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
+                                        </button>
+                                        <div className="flex items-center gap-2 opacity-0 group-hover/cat:opacity-100 transition-opacity pt-4">
+                                            <button 
+                                                onClick={() => {
+                                                    setActiveTab('categories');
+                                                    setEditingCategory(category);
+                                                    setCatName(category.name);
+                                                    setCatParentId(category.parent_id || '');
+                                                    window.scrollTo(0, 0);
+                                                }}
+                                                className="p-1 text-muted-foreground hover:text-primary transition-colors"
+                                            >
+                                                <Edit2 size={13} />
+                                            </button>
+                                            <button 
+                                                onClick={() => handleDeleteCategory(category.id)}
+                                                className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+                                            >
+                                                <Trash2 size={13} />
+                                            </button>
+                                        </div>
+                                    </div>
 
                                     {!isCollapsed && (
                                         <DndContext

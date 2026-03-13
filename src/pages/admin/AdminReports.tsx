@@ -222,7 +222,7 @@ const AdminReports = () => {
                             <option value="pos">POS (Manual)</option>
                             <option value="walkin">Walk-in</option>
                             <option value="apartment">Apartment</option>
-                            <option value="delivery">🚚 Delivery</option>
+                            <option value="delivery">Delivery</option>
                         </select>
                     </div>
 
@@ -252,7 +252,7 @@ const AdminReports = () => {
             </div>
 
             {/* Quick Stats */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print-visible">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:hidden">
                 <div className="bg-primary/5 border border-primary/20 p-4 rounded-2xl">
                     <div className="flex justify-between items-start">
                         <p className="text-xs font-bold text-primary uppercase">Revenue</p>
@@ -278,9 +278,9 @@ const AdminReports = () => {
 
             {/* Delivery Stats Breakdown */}
             {(sourceFilter === 'all' || sourceFilter === 'delivery') && totalDeliveries > 0 && (
-                <div className="bg-card border border-border rounded-2xl p-4 shadow-sm print-visible">
+                <div className="bg-card border border-border rounded-2xl p-4 shadow-sm print:hidden">
                     <h3 className="text-sm font-bold text-foreground mb-3 flex items-center gap-2">
-                        <span>🚚</span> Delivery Breakdown <span className="text-xs text-muted-foreground font-normal">({totalDeliveries} total)</span>
+                        Delivery Breakdown <span className="text-xs text-muted-foreground font-normal">({totalDeliveries} total)</span>
                     </h3>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {deliveryStats.map(stat => (
@@ -294,8 +294,8 @@ const AdminReports = () => {
             )}
 
             {/* Reports Table */}
-            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden overflow-x-auto print-visible">
-                <table className="w-full text-left border-collapse">
+            <div className="bg-card border border-border rounded-2xl shadow-sm overflow-hidden overflow-x-auto print:!block print:!border-none print:!shadow-none print:!m-0 print:!p-0 print-table-container">
+                <table className="w-full text-left border-collapse print:!w-full">
                     <thead className="bg-secondary/50 text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
                         <tr>
                             <th className="px-6 py-4">Date & Time</th>
@@ -373,7 +373,7 @@ const AdminReports = () => {
             </div>
 
             {/* Itemized Sales Summary (Most Ordered) */}
-            <div className="mt-6 bg-card border border-border rounded-2xl p-6 shadow-sm print-visible">
+            <div className="mt-6 bg-card border border-border rounded-2xl p-6 shadow-sm print:hidden">
                 <div className="flex items-center justify-between mb-6">
                     <h3 className="text-xl font-bold flex items-center gap-2 text-foreground">
                         <Package size={22} className="text-primary" /> Most Ordered Items
@@ -415,20 +415,20 @@ const AdminReports = () => {
             <style dangerouslySetInnerHTML={{
                 __html: `
                 @media print {
-                    @page { size: portrait; margin: 0.5in; }
-                    html, body, #root, .h-screen, main, .w-full, .max-w-7xl { height: auto !important; overflow: visible !important; position: static !important; max-width: none !important; width: 100% !important; min-width: 100% !important; border: none !important; }
-                    aside, .no-print, button, #theme-toggle, .shadow-sm, .fixed, .sticky, nav, header, [role="navigation"], .lg\\:hidden, .print\\:hidden { display: none !important; opacity: 0 !important; visibility: hidden !important; width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }
-                    body { background: white !important; color: black !important; font-family: 'Inter', system-ui, sans-serif; margin: 0; padding: 0 !important; font-size: 8pt; }
-                    .space-y-6 > * + * { margin-top: 15px !important; }
-                    main { padding: 0 !important; margin: 0 !important; display: block !important; overflow: visible !important; box-shadow: none !important; border: none !important; background: transparent !important; }
-                    .print-header { display: block !important; visibility: visible !important; opacity: 1 !important; margin-bottom: 20px !important; border-bottom: 2px solid #2EA066 !important; padding-bottom: 12px !important; text-align: center; }
-                    .print-header h1 { font-size: 20pt !important; margin: 0; }
-                    .bg-card, .bg-secondary\\/30, .bg-secondary\\/50 { background: white !important; border: 1px solid #ddd !important; display: block !important; opacity: 1 !important; visibility: visible !important; border-radius: 4px !important; box-shadow: none !important; overflow: visible !important; page-break-inside: avoid; margin-bottom: 12px; width: 100% !important; max-width: none !important; padding: 8px !important; }
-                    .print-visible { display: block !important; visibility: visible !important; }
-                    table { width: 100% !important; border-collapse: collapse !important; border: 1px solid #ddd !important; table-layout: fixed !important; page-break-inside: auto; }
-                    tr { page-break-inside: avoid; page-break-after: auto; }
-                    th { background: #f5f5f5 !important; border: 1px solid #ddd !important; padding: 4px !important; color: black !important; font-size: 6.5pt !important; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-                    td { border: 1px solid #eee !important; padding: 4px !important; font-size: 6pt !important; color: black !important; vertical-align: top; word-break: break-word !important; overflow: hidden; }
+                    @page { size: portrait; margin: 0.75in; }
+                    html, body, #root, .h-screen, main, .w-full, .max-w-7xl, #root > div { height: auto !important; overflow: visible !important; position: static !important; max-width: none !important; width: 100% !important; min-width: 100% !important; border: none !important; margin: 0 !important; padding: 0 !important; }
+                    aside, .no-print, button, #theme-toggle, .shadow-sm, .fixed, .sticky, nav, header, [role="navigation"], .lg\\:hidden, .print\\:hidden, .print\\:hidden *, .bg-card:not(.print-table-container), .bg-card:not(.print-table-container) * { display: none !important; opacity: 0 !important; visibility: hidden !important; width: 0 !important; height: 0 !important; margin: 0 !important; padding: 0 !important; pointer-events: none !important; }
+                    body { background: white !important; color: black !important; font-family: 'Inter', system-ui, sans-serif; margin: 0 !important; padding: 0 !important; font-size: 9pt; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                    main { padding: 0 !important; margin: 0 !important; display: block !important; overflow: visible !important; box-shadow: none !important; border: none !important; background: transparent !important; width: 100% !important; max-width: 100% !important; }
+                    .print-header { display: block !important; visibility: visible !important; opacity: 1 !important; margin-bottom: 40px !important; border-bottom: 3px solid #000 !important; padding-bottom: 20px !important; text-align: center; width: 100% !important; }
+                    .print-header h1 { font-size: 28pt !important; margin: 0; font-weight: 900 !important; letter-spacing: -0.05em !important; color: black !important; }
+                    .print-header p { font-size: 10pt !important; letter-spacing: 0.4em !important; margin-top: 8px !important; color: #666 !important; }
+                    .print-header .flex { display: flex !important; justify-content: space-between !important; font-size: 8pt !important; margin-top: 15px !important; }
+                    
+                    .print-table-container { display: block !important; visibility: visible !important; opacity: 1 !important; width: 100% !important; margin: 0 !important; padding: 0 !important; border: none !important; box-shadow: none !important; }
+                    table { width: 100% !important; border-collapse: collapse !important; border: 1.5pt solid #000 !important; table-layout: fixed !important; page-break-inside: auto; margin-top: 0 !important; }
+                    th { background: #f0f0f0 !important; border: 1pt solid #000 !important; padding: 10px 6px !important; color: black !important; font-size: 8pt !important; text-transform: uppercase; font-weight: 900 !important; }
+                    td { border: 0.5pt solid #000 !important; padding: 10px 6px !important; font-size: 7.5pt !important; color: black !important; vertical-align: top; word-break: break-word !important; }
                     
                     th:nth-child(1), td:nth-child(1) { width: 12%; } /* Date & Time */
                     th:nth-child(2), td:nth-child(2) { width: 10%; } /* Order ID */
@@ -436,14 +436,10 @@ const AdminReports = () => {
                     th:nth-child(4), td:nth-child(4) { width: 10%; } /* Staff */
                     th:nth-child(5), td:nth-child(5) { width: 30%; } /* Items */
                     th:nth-child(6), td:nth-child(6) { width: 8%; }  /* Source */
-                    th:nth-child(7), td:nth-child(7) { width: 7%; }  /* Amount */
-                    th:nth-child(8), td:nth-child(8) { width: 8%; }  /* Status */
-                    .text-primary { color: #2EA066 !important; }
-                    .mt-6 { margin-top: 15px !important; }
-                    .grid { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 6px !important; }
-                    .grid > div { page-break-inside: avoid; border: 1px solid #eee !important; padding: 6px !important; }
-                    /* Force layout reset */
-                    .flex, .flex-1, .h-screen { display: block !important; width: 100% !important; max-width: 100% !important; height: auto !important; margin: 0 !important; padding: 0 !important; }
+                    th:nth-child(7), td:nth-child(7) { width: 8%; }  /* Amount */
+                    th:nth-child(8), td:nth-child(8) { width: 7%; }  /* Status */
+                    .text-primary, .text-green-600 { color: black !important; font-weight: bold !important; }
+                    .flex, .grid { display: block !important; width: 100% !important; }
                 }
                 `
             }} />

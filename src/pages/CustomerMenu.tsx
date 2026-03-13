@@ -401,9 +401,8 @@ const CustomerMenu = () => {
     );
 
     return (
-        <div className="min-h-screen bg-background/95 text-foreground pb-36 font-sans selection:bg-primary/20 relative overflow-x-hidden">
-            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.15)_0%,_transparent_70%)] pointer-events-none -z-20" />
-            <div className="fixed top-0 left-0 w-full h-full opacity-[0.12] dark:opacity-[0.08] -z-10 pointer-events-none bg-repeat" style={{ backgroundImage: `url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Ctext x='20' y='50' font-size='28' opacity='0.8'%3E%F0%9F%8D%94%3C/text%3E%3Ctext x='120' y='90' font-size='28' opacity='0.8'%3E%F0%9F%8D%95%3C/text%3E%3Ctext x='40' y='160' font-size='28' opacity='0.8'%3E%F0%9F%A5%97%3C/text%3E%3Ctext x='150' y='180' font-size='28' opacity='0.8'%3E%F0%9F%A5%AA%3C/text%3E%3Ctext x='80' y='120' font-size='28' opacity='0.8'%3E%F0%9F%8D%9F%3C/text%3E%3Ctext x='180' y='30' font-size='28' opacity='0.8'%3E%F0%9F%A5%A4%3C/text%3E%3Ctext x='10' y='110' font-size='28' opacity='1'%3E%E2%98%95%3C/text%3E%3Ctext x='100' y='20' font-size='28' opacity='0.8'%3E%F0%9F%8D%BA%3C/text%3E%3Ctext x='140' y='40' font-size='28' opacity='0.8'%3E%F0%9F%8D%B7%3C/text%3E%3C/svg%3E")`, backgroundSize: '180px' }} />
+        <div className="min-h-screen bg-background text-foreground pb-36 font-sans selection:bg-primary/20 relative overflow-x-hidden">
+            <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.05)_0%,_transparent_70%)] pointer-events-none -z-20" />
 
             {/* ── Header ── */}
             <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
