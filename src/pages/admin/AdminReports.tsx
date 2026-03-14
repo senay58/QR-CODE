@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import { Download, Search, TrendingUp, DollarSign, Package, RotateCcw, Trash2, AlertTriangle, X } from 'lucide-react';
 
 interface ReportOrder {
@@ -19,6 +20,7 @@ interface ReportOrder {
 }
 
 const AdminReports = () => {
+    const { restaurantId } = useAuth();
     const [orders, setOrders] = useState<ReportOrder[]>([]);
     const [loading, setLoading] = useState(true);
     const [startDate, setStartDate] = useState('');
@@ -34,10 +36,22 @@ const AdminReports = () => {
     const [actionMsg, setActionMsg] = useState('');
 
     useEffect(() => {
-        fetchReports();
-    }, [startDate, endDate]);
+        if (restaurantId) fetchReports();
+        else if (!restaurantId) {
+            // wait a bit and retry if restaurantId is initially null
+            const timer = setTimeout(() => {
+                if (restaurantId) fetchReports();
+            }, 1000);
+            return () => clearTimeout(timer);
+        }
+    }, [startDate, endDate, restaurantId]);
 
     const fetchReports = async () => {
+        if (!restaurantId) {
+            console.log("AdminReports: restaurantId is null, skipping fetch");
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         let query = supabase
             .from('orders')
@@ -50,13 +64,19 @@ const AdminReports = () => {
                     menu_items (name)
                 )
             `)
+            .eq('restaurant_id', restaurantId)
             .order('created_at', { ascending: false });
 
         if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
         if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
 
-        const { data } = await query;
-        if (data) setOrders(data);
+        const { data, error } = await query;
+        if (error) {
+            console.error("AdminReports fetch error:", error);
+            setOrders([]);
+        } else {
+            setOrders(data || []);
+        }
         setLoading(false);
     };
 
@@ -92,7 +112,7 @@ const AdminReports = () => {
         setDeletingFiltered(true);
         setConfirmDelete(false);
         const ids = filteredOrders.map(o => o.id);
-        const { error } = await supabase.from('orders').delete().in('id', ids);
+        const { error } = await supabase.from('orders').delete().in('id', ids).eq('restaurant_id', restaurantId);
         if (error) {
             setActionMsg('Error deleting orders: ' + error.message);
         } else {
@@ -113,6 +133,7 @@ const AdminReports = () => {
         const { error } = await supabase
             .from('orders')
             .delete()
+            .eq('restaurant_id', restaurantId)
             .eq('status', 'completed');
         if (error) {
             setActionMsg('Error resetting: ' + error.message);
@@ -316,10 +337,10 @@ const AdminReports = () => {
                         ) : filteredOrders.map(order => (
                             <tr key={order.id} className="hover:bg-secondary/20 transition-colors">
                                 <td className="px-6 py-4 text-xs font-medium whitespace-nowrap">
-                                    {new Date(order.created_at).toLocaleDateString()} <br />
-                                    <span className="text-[10px] text-muted-foreground">{new Date(order.created_at).toLocaleTimeString()}</span>
+                                    {order.created_at ? new Date(order.created_at).toLocaleDateString() : 'N/A'} <br />
+                                    <span className="text-[10px] text-muted-foreground">{order.created_at ? new Date(order.created_at).toLocaleTimeString() : ''}</span>
                                 </td>
-                                <td className="px-6 py-4 text-xs font-bold font-mono">#{order.id.substring(0, 8)}</td>
+                                <td className="px-6 py-4 text-xs font-bold font-mono">#{order.id?.substring(0, 8) || '??'}</td>
                                 <td className="px-6 py-4 text-xs font-bold">
                                     {order.source === 'delivery' ? '🚚 ' : order.source === 'apartment' ? '🏠 ' : '🪑 '} 
                                     <span className={
@@ -332,17 +353,17 @@ const AdminReports = () => {
                                     }>{order.table_number}</span>
                                 </td>
                                 <td className="px-6 py-4 text-[10px] font-bold text-muted-foreground uppercase tracking-wider italic">
-                                    {order.staff_name || 'Admin'}
+                                    {order.staff_name || 'System/Admin'}
                                 </td>
                                 <td className="px-6 py-4 text-xs">
                                     <div className="space-y-1">
                                         {order.order_items?.map((oi, i) => (
                                             <div key={i} className="flex flex-col">
-                                                <span>{oi.quantity}x {oi.menu_items?.name}</span>
+                                                <span>{oi.quantity}x {oi.menu_items?.name || 'Item'}</span>
                                                 {oi.extras_snapshot && (() => {
                                                     try {
-                                                        const parsed = JSON.parse(oi.extras_snapshot);
-                                                        return parsed.length > 0 ? (
+                                                        const parsed = typeof oi.extras_snapshot === 'string' ? JSON.parse(oi.extras_snapshot) : oi.extras_snapshot;
+                                                        return Array.isArray(parsed) && parsed.length > 0 ? (
                                                             <span className="text-[9px] text-muted-foreground italic">
                                                                 +{parsed.map((ex: any) => ex.name).join(', ')}
                                                             </span>
@@ -350,7 +371,7 @@ const AdminReports = () => {
                                                     } catch { return null; }
                                                 })()}
                                             </div>
-                                        ))}
+                                        )) || <span className="text-muted-foreground italic text-[10px]">No items</span>}
                                     </div>
                                 </td>
                                 <td className="px-6 py-4 text-[10px] uppercase font-bold tracking-widest text-muted-foreground">

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import { ShoppingCart, Plus, Minus, CheckCircle2, Tag, X, Truck, FolderTree } from 'lucide-react';
 
 // ── Types ──────────────────────────────────────────────
@@ -30,6 +31,7 @@ const DELIVERY_COMPANIES = ['BEU DELIVERY', 'Deliver Addis', 'Z-Mall', 'Klik'];
 
 // ── Component ──────────────────────────────────────────
 const AdminPOS = () => {
+    const { restaurantId } = useAuth();
     const [categories, setCategories] = useState<any[]>([]);
     const [items, setItems] = useState<any[]>([]);
     const [allExtras, setAllExtras] = useState<GlobalExtra[]>([]);
@@ -55,26 +57,31 @@ const AdminPOS = () => {
     const [extrasModal, setExtrasModal] = useState<{ item: any; availableExtras: GlobalExtra[] } | null>(null);
     const [selectedExtras, setSelectedExtras] = useState<CartExtra[]>([]);
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => { 
+        if (restaurantId) fetchData(); 
+    }, [restaurantId]);
 
     const fetchData = async () => {
+        if (!restaurantId) return;
         setLoading(true);
         const [catsRes, itemsRes, extrasRes] = await Promise.all([
-            supabase.from('categories').select('*').order('sort_order', { ascending: true }),
-            supabase.from('menu_items').select('*').order('name', { ascending: true }),
-            supabase.from('global_extras').select('*').order('name', { ascending: true }),
+            supabase.from('categories').select('*').eq('restaurant_id', restaurantId).order('sort_order', { ascending: true }),
+            supabase.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('name', { ascending: true }),
+            supabase.from('global_extras').select('*').eq('restaurant_id', restaurantId).order('name', { ascending: true }),
         ]);
+        if (catsRes.error || itemsRes.error || extrasRes.error) {
+            setError(`Load Error: ${catsRes.error?.message || itemsRes.error?.message || extrasRes.error?.message}`);
+        }
         if (catsRes.data) {
             setCategories(catsRes.data);
-            // Set first top-level category active
             const firstTop = catsRes.data.find((c: any) => !c.parent_id);
             if (firstTop) setActiveCategory(firstTop.id);
         }
         if (itemsRes.data) setItems(itemsRes.data);
         if (extrasRes.data) setAllExtras(extrasRes.data);
 
-        const { data: sData } = await supabase.from('staff').select('name').eq('is_active', true);
-        if (sData) setStaffList(sData);
+        const { data: sData } = await supabase.from('staff').select('full_name').eq('restaurant_id', restaurantId).eq('is_active', true);
+        if (sData) setStaffList(sData.map(s => ({ name: s.full_name })));
         setLoading(false);
     };
 
@@ -189,7 +196,8 @@ const AdminPOS = () => {
                     status: 'pending',
                     total_amount: cartTotal,
                     source: orderSource === 'delivery' ? 'delivery' : orderSource,
-                    staff_name: selectedStaff || 'POS Admin'
+                    staff_name: selectedStaff || 'POS Admin',
+                    restaurant_id: restaurantId
                 }])
                 .select().single();
             if (orderError) throw orderError;
@@ -199,7 +207,7 @@ const AdminPOS = () => {
                 item_id: item.id,
                 quantity: item.quantity,
                 item_price: item.lineTotal / item.quantity,
-                extras_snapshot: JSON.stringify(item.extras),
+                extras_snapshot: JSON.stringify(item.extras)
             }));
 
             const { error: itemsError } = await supabase.from('order_items').insert(orderItems);

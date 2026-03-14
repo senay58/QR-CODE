@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import { Plus, Edit2, Trash2, Check, X, Tag, ChevronDown, ChevronUp, GripVertical, Search, FolderTree } from 'lucide-react';
 import {
     DndContext,
@@ -106,6 +107,7 @@ const saveBtnCls = 'flex-1 bg-primary text-primary-foreground py-2 font-bold rou
 const cancelBtnCls = 'p-2 bg-secondary text-muted-foreground rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors';
 
 const AdminMenu = () => {
+    const { restaurantId } = useAuth();
     const [categories, setCategories] = useState<any[]>([]);
     const [items, setItems] = useState<any[]>([]);
     const [extras, setExtras] = useState<GlobalExtra[]>([]);
@@ -154,15 +156,22 @@ const AdminMenu = () => {
         })
     );
 
-    useEffect(() => { fetchData(); }, []);
+    useEffect(() => {
+        if (restaurantId) fetchData();
+    }, [restaurantId]);
 
     const fetchData = async () => {
+        if (!restaurantId) return;
         setLoading(true);
         const [catsRes, itemsRes, extrasRes] = await Promise.all([
-            supabase.from('categories').select('*').order('sort_order', { ascending: true }),
-            supabase.from('menu_items').select('*').order('sort_order', { ascending: true }),
-            supabase.from('global_extras').select('*').order('name', { ascending: true }),
+            supabase.from('categories').select('*').eq('restaurant_id', restaurantId).order('sort_order', { ascending: true }),
+            supabase.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('sort_order', { ascending: true }),
+            supabase.from('global_extras').select('*').eq('restaurant_id', restaurantId).order('name', { ascending: true }),
         ]);
+        if (catsRes.error || itemsRes.error || extrasRes.error) {
+            setError(`Error fetching data: ${catsRes.error?.message || itemsRes.error?.message || extrasRes.error?.message}`);
+            console.error('Menu fetch error:', catsRes.error, itemsRes.error, extrasRes.error);
+        }
         if (catsRes.data) setCategories(catsRes.data);
         if (itemsRes.data) setItems(itemsRes.data);
         if (extrasRes.data) setExtras(extrasRes.data);
@@ -185,11 +194,12 @@ const AdminMenu = () => {
             slug,
             sort_order: editingCategory ? editingCategory.sort_order : categories.length,
             parent_id: catParentId || null,
+            restaurant_id: restaurantId
         };
 
         let res;
         if (editingCategory) {
-            res = await supabase.from('categories').update(payload).eq('id', editingCategory.id);
+            res = await supabase.from('categories').update(payload).eq('id', editingCategory.id).eq('restaurant_id', restaurantId);
         } else {
             res = await supabase.from('categories').insert([payload]);
             if (res.error && res.error.message?.includes('slug')) {
@@ -210,8 +220,8 @@ const AdminMenu = () => {
     };
 
     const handleDeleteCategory = async (id: string) => {
-        if (!window.confirm('Delete this category? Items linked to it may break.')) return;
-        await supabase.from('categories').delete().eq('id', id);
+        if (!restaurantId || !window.confirm('Delete this category? Items linked to it may break.')) return;
+        await supabase.from('categories').delete().eq('id', id).eq('restaurant_id', restaurantId);
         fetchData();
     };
 
@@ -235,10 +245,11 @@ const AdminMenu = () => {
             image_url: itemImg.trim() || null,
             is_active: itemActive,
             sort_order: editingItem ? editingItem.sort_order : items.length,
+            restaurant_id: restaurantId
         };
 
         const res = editingItem
-            ? await supabase.from('menu_items').update(payload).eq('id', editingItem.id)
+            ? await supabase.from('menu_items').update(payload).eq('id', editingItem.id).eq('restaurant_id', restaurantId)
             : await supabase.from('menu_items').insert([payload]);
 
         if (res.error) {
@@ -290,8 +301,9 @@ const AdminMenu = () => {
     };
 
     const handleStatusChange = async (item: any) => {
+        if (!restaurantId) return;
         const newStatus = item.is_active === false;
-        const { error } = await supabase.from('menu_items').update({ is_active: newStatus }).eq('id', item.id);
+        const { error } = await supabase.from('menu_items').update({ is_active: newStatus }).eq('id', item.id).eq('restaurant_id', restaurantId);
         if (error) setError('Failed to update status: ' + error.message);
         else fetchData();
     };
@@ -322,7 +334,7 @@ const AdminMenu = () => {
         try {
             await Promise.all(
                 newCategoryItems.map((item, index) =>
-                    supabase.from('menu_items').update({ sort_order: index }).eq('id', item.id)
+                    supabase.from('menu_items').update({ sort_order: index }).eq('id', item.id).eq('restaurant_id', restaurantId)
                 )
             );
         } catch (err: any) {
@@ -332,8 +344,8 @@ const AdminMenu = () => {
     };
 
     const handleDeleteItem = async (id: string) => {
-        if (!window.confirm('Delete this menu item?')) return;
-        await supabase.from('menu_items').delete().eq('id', id);
+        if (!restaurantId || !window.confirm('Delete this menu item?')) return;
+        await supabase.from('menu_items').delete().eq('id', id).eq('restaurant_id', restaurantId);
         fetchData();
     };
 
@@ -349,10 +361,11 @@ const AdminMenu = () => {
         const payload = {
             name: extraName.trim(),
             price: parseFloat(extraPrice),
+            restaurant_id: restaurantId
         };
 
         const res = editingExtra
-            ? await supabase.from('global_extras').update(payload).eq('id', editingExtra.id)
+            ? await supabase.from('global_extras').update(payload).eq('id', editingExtra.id).eq('restaurant_id', restaurantId)
             : await supabase.from('global_extras').insert([payload]);
 
         if (res.error) {
@@ -366,8 +379,8 @@ const AdminMenu = () => {
     };
 
     const handleDeleteExtra = async (id: string) => {
-        if (!window.confirm('Delete this global extra option?')) return;
-        await supabase.from('global_extras').delete().eq('id', id);
+        if (!restaurantId || !window.confirm('Delete this global extra option?')) return;
+        await supabase.from('global_extras').delete().eq('id', id).eq('restaurant_id', restaurantId);
         fetchData();
     };
 

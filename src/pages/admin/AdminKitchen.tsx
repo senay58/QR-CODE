@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import {
     CheckCircle2,
     Flame, // Flame is used in the header, so it should not be removed.
@@ -30,20 +31,23 @@ interface Order {
 }
 
 const AdminKitchen = () => {
+    const { restaurantId } = useAuth();
     const [orders, setOrders] = useState<Order[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
     useEffect(() => {
+        if (!restaurantId) return;
         fetchKitchenOrders();
 
-        // Realtime subscription
+        // Realtime subscription with tenant filter
         const channel = supabase
-            .channel('kitchen_orders')
+            .channel(`kitchen-${restaurantId}`)
             .on('postgres_changes', {
                 event: '*',
                 schema: 'public',
-                table: 'orders'
+                table: 'orders',
+                filter: `restaurant_id=eq.${restaurantId}`
             }, () => fetchKitchenOrders())
             .subscribe();
 
@@ -53,9 +57,10 @@ const AdminKitchen = () => {
             supabase.removeChannel(channel);
             clearInterval(interval);
         };
-    }, []);
+    }, [restaurantId]);
 
     const fetchKitchenOrders = async () => {
+        if (!restaurantId) return;
         const { data, error } = await supabase
             .from('orders')
             .select(`
@@ -67,6 +72,7 @@ const AdminKitchen = () => {
                     menu_items ( name )
                 )
             `)
+            .eq('restaurant_id', restaurantId)
             .in('status', ['pending', 'preparing'])
             .order('created_at', { ascending: true });
 
@@ -76,10 +82,15 @@ const AdminKitchen = () => {
     };
 
     const updateStatus = async (orderId: string, status: 'preparing' | 'completed') => {
+        if (!restaurantId) return;
+        const updatePayload: any = { status };
+        if (status === 'completed') updatePayload.completed_at = new Date().toISOString();
+
         const { error } = await supabase
             .from('orders')
-            .update({ status })
-            .eq('id', orderId);
+            .update(updatePayload)
+            .eq('id', orderId)
+            .eq('restaurant_id', restaurantId);
         if (!error) fetchKitchenOrders();
     };
 

@@ -5,7 +5,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { KeyRound, Mail, ShieldAlert, Users, Plus, Trash2 } from 'lucide-react';
 
 const AdminSettings = () => {
-    const { user } = useAuth();
+    const { user, restaurantId } = useAuth();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
 
@@ -18,45 +18,85 @@ const AdminSettings = () => {
     const [staffList, setStaffList] = useState<any[]>([]);
     const [staffName, setStaffName] = useState('');
     const [staffRole, setStaffRole] = useState('Waiter');
+    const [hourlyRate, setHourlyRate] = useState('');
+    const [baseSalary, setBaseSalary] = useState('');
+    const [workingDays, setWorkingDays] = useState('5');
+    const [workingHours, setWorkingHours] = useState('8');
     const [staffLoading, setStaffLoading] = useState(false);
 
     useEffect(() => {
         if (user) setNewEmail(user.email || '');
-        fetchSecret();
-        fetchStaff();
-    }, [user]);
+        if (restaurantId) {
+            fetchSecret();
+            fetchStaff();
+        }
+    }, [user, restaurantId]);
 
     const fetchStaff = async () => {
-        const { data } = await supabase.from('staff').select('*').order('created_at', { ascending: true });
+        if (!restaurantId) return;
+        const { data } = await supabase.from('staff').select('*').eq('restaurant_id', restaurantId).order('created_at', { ascending: true });
         if (data) setStaffList(data);
     };
 
     const handleAddStaff = async () => {
-        if (!staffName.trim()) return;
+        if (!staffName.trim() || !restaurantId) {
+            alert("Please enter a staff name.");
+            return;
+        }
         setStaffLoading(true);
-        await supabase.from('staff').insert([{ name: staffName.trim(), role: staffRole }]);
-        setStaffName('');
-        setStaffRole('Waiter');
-        fetchStaff();
-        setStaffLoading(false);
+        try {
+            const { error } = await supabase.from('staff').insert([{ 
+                name: staffName.trim(), // Bypass original NOT NULL constraint
+                full_name: staffName.trim(), 
+                role: staffRole, 
+                hourly_rate: parseFloat(hourlyRate) || 0,
+                base_salary_per_month: parseFloat(baseSalary) || 0,
+                working_days_per_week: parseInt(workingDays) || 5,
+                working_hours_per_day: parseInt(workingHours) || 14,
+                restaurant_id: restaurantId,
+                is_active: true
+            }]);
+            
+            if (error) {
+                console.error("Staff Insert Error:", error);
+                alert(`Error: ${error.message}`);
+            } else {
+                setStaffName('');
+                setStaffRole('Waiter');
+                setHourlyRate('');
+                setBaseSalary('');
+                // Reset other fields to defaults if needed
+                setWorkingDays('5');
+                setWorkingHours('14');
+                fetchStaff();
+            }
+        } catch (err: any) {
+            alert(`Critical error: ${err.message}`);
+        } finally {
+            setStaffLoading(false);
+        }
     };
 
     const handleDeleteStaff = async (id: string) => {
-        if (window.confirm('Remove this staff member?')) {
-            await supabase.from('staff').delete().eq('id', id);
+        if (restaurantId && window.confirm('Remove this staff member?')) {
+            await supabase.from('staff').delete().eq('id', id).eq('restaurant_id', restaurantId);
             fetchStaff();
         }
     };
 
     const toggleStaffActive = async (id: string, current: boolean) => {
-        await supabase.from('staff').update({ is_active: !current }).eq('id', id);
+        if (!restaurantId) return;
+        await supabase.from('staff').update({ is_active: !current }).eq('id', id).eq('restaurant_id', restaurantId);
         fetchStaff();
     };
 
     const fetchSecret = async () => {
-        const { data, error } = await supabase.from('admin_secrets').select('secret_code').limit(1).single();
+        if (!restaurantId) return;
+        const { data, error } = await supabase.from('admin_secrets').select('secret_code').eq('restaurant_id', restaurantId).limit(1).single();
         if (data && !error) {
             setCurrentSecret('***' + data.secret_code.slice(-3));
+        } else {
+            setCurrentSecret('Not Set');
         }
     };
 
@@ -78,14 +118,14 @@ const AdminSettings = () => {
             }
         }
 
-        if (secretPhrase.length > 0) {
+        if (secretPhrase.length > 0 && restaurantId) {
             // Check if secret exists first
-            const { data: existing } = await supabase.from('admin_secrets').select('id').limit(1).single();
+            const { data: existing } = await supabase.from('admin_secrets').select('id').eq('restaurant_id', restaurantId).limit(1).single();
 
             if (existing) {
-                await supabase.from('admin_secrets').update({ secret_code: secretPhrase }).eq('id', existing.id);
+                await supabase.from('admin_secrets').update({ secret_code: secretPhrase }).eq('id', existing.id).eq('restaurant_id', restaurantId);
             } else {
-                await supabase.from('admin_secrets').insert([{ secret_code: secretPhrase }]);
+                await supabase.from('admin_secrets').insert([{ secret_code: secretPhrase, restaurant_id: restaurantId }]);
             }
             fetchSecret();
             setSecretPhrase('');
@@ -174,30 +214,75 @@ const AdminSettings = () => {
                     </div>
                 </header>
 
-                <div className="flex flex-col sm:flex-row gap-2 mb-6">
-                    <input
-                        type="text"
-                        value={staffName}
-                        onChange={(e) => setStaffName(e.target.value)}
-                        placeholder="Waiter Name..."
-                        className="flex-1 px-4 py-2 bg-background border border-border rounded-lg text-sm"
-                    />
-                    <select
-                        value={staffRole}
-                        onChange={(e) => setStaffRole(e.target.value)}
-                        className="px-4 py-2 bg-background border border-border rounded-lg text-sm"
-                    >
-                        <option value="Waiter">Waiter</option>
-                        <option value="Supervisor">Supervisor</option>
-                        <option value="Kitchen">Kitchen</option>
-                    </select>
-                    <button
-                        onClick={handleAddStaff}
-                        disabled={staffLoading || !staffName}
-                        className="bg-primary text-primary-foreground px-4 py-2 rounded-lg font-bold flex items-center justify-center gap-2 whitespace-nowrap"
-                    >
-                        <Plus size={18} /> Add Staff
-                    </button>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 p-4 bg-secondary/20 rounded-2xl border border-border/50">
+                    <div className="sm:col-span-2 flex gap-2">
+                        <input
+                            type="text"
+                            value={staffName}
+                            onChange={(e) => setStaffName(e.target.value)}
+                            placeholder="Full Name..."
+                            className="flex-1 px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                        />
+                        <select
+                            value={staffRole}
+                            onChange={(e) => setStaffRole(e.target.value)}
+                            className="px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                        >
+                            <option value="Admin">Admin</option>
+                            <option value="Waiter">Waiter</option>
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Cooks">Cooks</option>
+                            <option value="Sanitary">Sanitary</option>
+                            <option value="Others">Others</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-muted-foreground mb-1 block">Monthly Salary (ETB)</label>
+                        <input
+                            type="number"
+                            value={baseSalary}
+                            onChange={(e) => setBaseSalary(e.target.value)}
+                            placeholder="e.g. 8000"
+                            className="w-full px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-muted-foreground mb-1 block">Hourly Rate (Optional)</label>
+                        <input
+                            type="number"
+                            value={hourlyRate}
+                            onChange={(e) => setHourlyRate(e.target.value)}
+                            placeholder="e.g. 50"
+                            className="w-full px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-muted-foreground mb-1 block">Days / Week</label>
+                        <input
+                            type="number"
+                            value={workingDays}
+                            onChange={(e) => setWorkingDays(e.target.value)}
+                            className="w-full px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                        />
+                    </div>
+                    <div>
+                        <label className="text-[10px] font-black uppercase text-muted-foreground mb-1 block">Hours / Day</label>
+                        <input
+                            type="number"
+                            value={workingHours}
+                            onChange={(e) => setWorkingHours(e.target.value)}
+                            className="w-full px-4 py-2 bg-background border border-border rounded-lg text-sm"
+                        />
+                    </div>
+                    <div className="sm:col-span-2">
+                        <button
+                            onClick={handleAddStaff}
+                            disabled={staffLoading || !staffName}
+                            className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl transition-all"
+                        >
+                            <Plus size={18} /> {staffLoading ? 'Registering...' : 'Register Staff Member'}
+                        </button>
+                    </div>
                 </div>
 
                 <div className="space-y-2">
@@ -206,8 +291,11 @@ const AdminSettings = () => {
                             <div className="flex items-center gap-3">
                                 <div className={`w-2 h-2 rounded-full ${staff.is_active ? 'bg-green-500' : 'bg-gray-400'}`} />
                                 <div className="flex flex-col">
-                                    <span className={`font-bold text-sm ${!staff.is_active && 'text-muted-foreground line-through'}`}>{staff.name}</span>
-                                    <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{staff.role}</span>
+                                    <span className={`font-bold text-sm ${!staff.is_active && 'text-muted-foreground line-through'}`}>{staff.full_name}</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">{staff.role}</span>
+                                        <span className="text-[10px] text-primary font-bold">ETB {staff.hourly_rate}/hr</span>
+                                    </div>
                                 </div>
                             </div>
                             <div className="flex items-center gap-2">

@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { useAuth } from '../../hooks/useAuth';
 
 const AdminQR = () => {
+    const { restaurantSlug } = useAuth();
     const [customerType, setCustomerType] = useState('walkin');
     const [entityId, setEntityId] = useState('1');
     const [baseUrlInput, setBaseUrlInput] = useState(window.location.origin);
 
-    // If deployed, baseUrlInput will let them change it to "https://sandwichhouse.vercel.app"
-    const qrUrl = `${baseUrlInput}/?type=${customerType}&id=${encodeURIComponent(entityId)}`;
+    // If deployed, baseUrlInput will let them change it to "https://ironplate.app"
+    const qrUrl = `${baseUrlInput}/r/${restaurantSlug || 'unknown'}/?type=${customerType}&id=${encodeURIComponent(entityId)}`;
 
     return (
         <div>

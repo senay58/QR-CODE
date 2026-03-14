@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { ThemeToggle } from '../components/ThemeToggle';
 import { Bell, Star, ShoppingCart, Plus, Minus, X, ClipboardList, Download, Tag, UtensilsCrossed, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -28,28 +28,72 @@ interface GlobalExtra {
 }
 
 const CustomerMenu = () => {
+    const { slug } = useParams();
     const [searchParams] = useSearchParams();
     const customerType = searchParams.get('type') || 'walkin';
     const entityId = searchParams.get('id') || searchParams.get('table') || 'Unknown';
     const isApartment = customerType === 'apartment';
 
+    const [restaurant, setRestaurant] = useState<any>(null);
+    const [restaurantId, setRestaurantId] = useState<string | null>(null);
+
     const [orderCount, setOrderCount] = useState(0);
 
     const fetchOrderCount = async () => {
-        if (entityId === 'Unknown') return;
+        if (entityId === 'Unknown' || !restaurantId) return;
         const today = new Date().toISOString().split('T')[0];
         const { count } = await supabase
             .from('orders')
             .select('*', { count: 'exact', head: true })
+            .eq('restaurant_id', restaurantId)
             .ilike('table_number', `${entityId}%`)
             .gte('created_at', today);
         if (count !== null) setOrderCount(count);
     };
 
+    // Fetch restaurant by slug
+    useEffect(() => {
+        const getRestaurant = async () => {
+            try {
+                if (slug) {
+                    const { data, error } = await supabase
+                        .from('restaurants')
+                        .select('*')
+                        .eq('slug', slug)
+                        .maybeSingle();
+                    if (data) {
+                        setRestaurant(data);
+                        setRestaurantId(data.id);
+                    } else {
+                        console.error("Restaurant not found for slug:", slug, error);
+                    }
+                } else {
+                    // Root path: load first restaurant
+                    const { data, error } = await supabase
+                        .from('restaurants')
+                        .select('*')
+                        .limit(1)
+                        .maybeSingle();
+                    if (data) {
+                        setRestaurant(data);
+                        setRestaurantId(data.id);
+                    } else {
+                        console.error("No restaurants found:", error);
+                        setLoadingMenu(false);
+                    }
+                }
+            } catch (err) {
+                console.error("Unexpected error loading restaurant:", err);
+                setLoadingMenu(false);
+            }
+        };
+        getRestaurant();
+    }, [slug]);
+
     // Fetch daily order count for this table/room
     useEffect(() => {
-        fetchOrderCount();
-    }, [entityId]);
+        if (restaurantId) fetchOrderCount();
+    }, [entityId, restaurantId]);
 
     // Generate personalized identifier: [W/A]-[Location]-[Date]-[Count]
     const getFormattedId = () => {
@@ -93,11 +137,12 @@ const CustomerMenu = () => {
     // --- Fetch categories & menu items from Supabase ---
     useEffect(() => {
         const fetchMenu = async () => {
+            if (!restaurantId) return;
             setLoadingMenu(true);
             const [catsRes, itemsRes, extrasRes] = await Promise.all([
-                supabase.from('categories').select('*').order('sort_order', { ascending: true }),
-                supabase.from('menu_items').select('*').order('sort_order', { ascending: true }),
-                supabase.from('global_extras').select('*').order('name', { ascending: true })
+                supabase.from('categories').select('*').eq('restaurant_id', restaurantId).order('sort_order', { ascending: true }),
+                supabase.from('menu_items').select('*').eq('restaurant_id', restaurantId).order('sort_order', { ascending: true }),
+                supabase.from('global_extras').select('*').eq('restaurant_id', restaurantId).order('name', { ascending: true })
             ]);
             if (catsRes.data && catsRes.data.length > 0) {
                 setCategories(catsRes.data);
@@ -110,11 +155,11 @@ const CustomerMenu = () => {
             setLoadingMenu(false);
         };
         fetchMenu();
-    }, []);
+    }, [restaurantId]);
 
     // --- Fetch active orders for tracking & notifications ---
     useEffect(() => {
-        if (entityId === 'Unknown') return;
+        if (entityId === 'Unknown' || !restaurantId) return;
 
         const fetchOrders = async () => {
             const { data } = await supabase
@@ -128,6 +173,7 @@ const CustomerMenu = () => {
                         menu_items ( name )
                     )
                 `)
+                .eq('restaurant_id', restaurantId)
                 .ilike('table_number', `${entityId}%`)
                 .in('status', ['pending', 'preparing', 'completed', 'cancelled'])
                 .order('created_at', { ascending: false })
@@ -177,7 +223,7 @@ const CustomerMenu = () => {
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [entityId]);
+    }, [entityId, restaurantId]);
     // Auto-hide notification (except for 'ready' status)
     useEffect(() => {
         if (notification && !notification.title.toLowerCase().includes('ready')) {
@@ -202,6 +248,7 @@ const CustomerMenu = () => {
                             menu_items ( name )
                         )
                     `)
+                    .eq('restaurant_id', restaurantId)
                     .ilike('table_number', `${entityId}%`)
                     .in('status', ['pending', 'preparing', 'completed', 'cancelled'])
                     .order('created_at', { ascending: false })
@@ -236,7 +283,7 @@ const CustomerMenu = () => {
             fetchOrders();
         }, 10000);
         return () => clearInterval(interval);
-    }, [entityId]);
+    }, [entityId, restaurantId]);
 
     const handleAddToCart = (item: any, extras: CartExtra[] = []) => {
         const extrasKey = extras.map(e => e.id).sort().join('-');
@@ -298,7 +345,8 @@ const CustomerMenu = () => {
                     table_number: finalTable,
                     status: 'pending',
                     total_amount: cartTotal,
-                    source: isWalkin ? 'walkin' : 'apartment'
+                    source: isWalkin ? 'walkin' : 'apartment',
+                    restaurant_id: restaurantId
                 }])
                 .select().single();
             if (orderError) throw orderError;
@@ -338,7 +386,8 @@ const CustomerMenu = () => {
                     table_number: tableNumber,
                     status: 'pending',
                     source: isApartment ? 'apartment' : 'walkin',
-                    cart_snapshot: cart.length > 0 ? JSON.stringify(cart) : null
+                    cart_snapshot: cart.length > 0 ? JSON.stringify(cart) : null,
+                    restaurant_id: restaurantId
                 }]);
             if (error) throw error;
             setCallSuccess(true);
@@ -362,7 +411,7 @@ const CustomerMenu = () => {
             const image = canvas.toDataURL('image/png');
             const link = document.createElement('a');
             link.href = image;
-            link.download = `SandwichHouse_${personalizedLabel}.png`;
+            link.download = `${restaurant?.name || 'Restaurant'}_${personalizedLabel}.png`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -410,7 +459,7 @@ const CustomerMenu = () => {
                     <div className="flex items-center gap-3">
                         <div className="flex flex-col">
                             <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">
-                                SANDWICH<span className="text-primary">HOUSE</span>
+                                {restaurant?.name.split(' ')[0] || 'LOGO'}<span className="text-primary">{restaurant?.name.split(' ').slice(1).join(' ') || ''}</span>
                             </h1>
                             <span className="text-[10px] text-muted-foreground font-black tracking-widest uppercase mt-1 bg-secondary/80 self-start px-2 py-0.5 rounded border border-border">
                                 ID: {personalizedLabel}
@@ -771,7 +820,7 @@ const CustomerMenu = () => {
             >
                 <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2px solid #e5e7eb', paddingBottom: '20px' }}>
                     <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '-0.05em' }}>
-                        SANDWICH<span style={{ color: '#2EA066' }}>HOUSE</span>
+                        {restaurant?.name.split(' ')[0] || 'LOGO'}<span style={{ color: '#2EA066' }}>{restaurant?.name.split(' ').slice(1).join(' ') || ''}</span>
                     </div>
                     <div style={{ fontSize: '12px', color: '#666', marginTop: '6px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                         Order ID: {personalizedLabel}

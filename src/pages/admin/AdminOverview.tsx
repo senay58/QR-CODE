@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
+import { useAuth } from '../../hooks/useAuth';
 import { Bell, CheckCircle2, TrendingUp, DollarSign, Package, Home, Users, Clock, RefreshCw, UtensilsCrossed, ChevronDown, ChevronUp } from 'lucide-react';
 
 
@@ -41,12 +42,14 @@ const statusColor: Record<string, string> = {
 };
 
 const AdminOverview = () => {
+    const { restaurantId } = useAuth();
     const [calls, setCalls] = useState<StaffCall[]>([]);
     const [orders, setOrders] = useState<Order[]>([]);
     const [popularItems, setPopularItems] = useState<PopularItem[]>([]);
     const [totalRevenue, setTotalRevenue] = useState(0);
     const [ordersTab, setOrdersTab] = useState<'all' | 'apartment' | 'walkin' | 'delivery'>('all');
     const [refreshing, setRefreshing] = useState(false);
+    const [expandedCall, setExpandedCall] = useState<string | null>(null);
 
     useEffect(() => {
         fetchAll();
@@ -72,7 +75,7 @@ const AdminOverview = () => {
             supabase.removeChannel(callsChannel);
             supabase.removeChannel(ordersChannel);
         };
-    }, []);
+    }, [restaurantId]);
 
     const fetchAll = async () => {
         await Promise.all([fetchCalls(), fetchOrders(), fetchAnalytics()]);
@@ -85,15 +88,18 @@ const AdminOverview = () => {
     };
 
     const fetchCalls = async () => {
+        if (!restaurantId) return;
         const { data } = await supabase
             .from('staff_calls')
             .select('*')
+            .eq('restaurant_id', restaurantId)
             .eq('status', 'pending')
             .order('created_at', { ascending: false });
         if (data) setCalls(data);
     };
 
     const fetchOrders = async () => {
+        if (!restaurantId) return;
         const { data } = await supabase
             .from('orders')
             .select(`
@@ -105,16 +111,19 @@ const AdminOverview = () => {
                     menu_items (name)
                 )
             `)
+            .eq('restaurant_id', restaurantId)
             .in('status', ['pending', 'preparing'])
             .order('created_at', { ascending: false });
         if (data) setOrders(data);
     };
 
     const fetchAnalytics = async () => {
+        if (!restaurantId) return;
         const { data: orderItems, error } = await supabase
             .from('order_items')
-            .select('quantity, item_price, menu_items (name), orders!inner(status)')
-            .eq('orders.status', 'completed');
+            .select('quantity, item_price, menu_items!inner(name, restaurant_id), orders!inner(status, restaurant_id)')
+            .eq('orders.status', 'completed')
+            .eq('orders.restaurant_id', restaurantId);
 
         if (!error && orderItems) {
             let total = 0;
@@ -137,7 +146,8 @@ const AdminOverview = () => {
     };
 
     const resolveCall = async (id: string) => {
-        await supabase.from('staff_calls').update({ status: 'resolved' }).eq('id', id);
+        if (!restaurantId) return;
+        await supabase.from('staff_calls').update({ status: 'resolved' }).eq('id', id).eq('restaurant_id', restaurantId);
         setCalls(cur => cur.filter(c => c.id !== id));
     };
 
@@ -153,7 +163,8 @@ const AdminOverview = () => {
                     table_number: call.table_number,
                     status: 'pending',
                     total_amount: total,
-                    source: call.source
+                    source: call.source,
+                    restaurant_id: restaurantId
                 }])
                 .select().single();
 
@@ -176,10 +187,13 @@ const AdminOverview = () => {
         }
     };
 
-    const [expandedCall, setExpandedCall] = useState<string | null>(null);
 
     const updateOrderStatus = async (id: string, status: Order['status']) => {
-        await supabase.from('orders').update({ status }).eq('id', id);
+        if (!restaurantId) return;
+        const updatePayload: any = { status };
+        if (status === 'completed') updatePayload.completed_at = new Date().toISOString();
+        
+        await supabase.from('orders').update(updatePayload).eq('id', id).eq('restaurant_id', restaurantId);
         if (status === 'completed' || status === 'cancelled') {
             setOrders(cur => cur.filter(o => o.id !== id));
         } else {
@@ -280,9 +294,9 @@ const AdminOverview = () => {
                                             <span className={
                                                 order.source === 'delivery' ? (
                                                     order.table_number.toUpperCase().includes('BEU DELIVERY') ? 'text-orange-500' :
-                                                    order.table_number.toUpperCase().includes('DELIVER ADDIS') ? 'text-red-500' :
-                                                    order.table_number.toUpperCase().includes('Z-MALL') ? 'text-blue-500' :
-                                                    order.table_number.toUpperCase().includes('KLIK') ? 'text-yellow-500' : ''
+                                                        order.table_number.toUpperCase().includes('DELIVER ADDIS') ? 'text-red-500' :
+                                                            order.table_number.toUpperCase().includes('Z-MALL') ? 'text-blue-500' :
+                                                                order.table_number.toUpperCase().includes('KLIK') ? 'text-yellow-500' : ''
                                                 ) : ''
                                             }>
                                                 {order.source === 'apartment' ? 'Room ' : order.source === 'walkin' ? 'Table ' : ''}
