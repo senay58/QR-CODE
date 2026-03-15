@@ -565,9 +565,6 @@ const CustomerMenu = () => {
                                     <div className="min-w-0 flex-1 text-left">
                                         <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight break-words pr-1">
                                             {item.name}
-                                            {(item.is_fasting || categories.find(c => c.id === item.category_id)?.name.toLowerCase().includes('fasting')) && (
-                                                <span className="inline-block ml-1" title="Fasting Option">🌿</span>
-                                            )}
                                         </h3>
                                         {item.average_rating > 0 && renderStars(item.average_rating, item.total_ratings || 0)}
                                     </div>

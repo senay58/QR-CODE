@@ -34,20 +34,36 @@ const AttendanceTracker = () => {
         }
     }, [restaurantId]);
 
+    // Re-run fetchRecentLogs when staffList populates to enrich the names
+    useEffect(() => {
+        if (staffList.length > 0 && recentLogs.length > 0 && !recentLogs[0]?.staff?.full_name) {
+            fetchRecentLogs(staffList);
+        }
+    }, [staffList]);
 
     const fetchStaffList = async () => {
         const { data } = await supabase.from('staff').select('*').eq('restaurant_id', restaurantId).eq('is_active', true);
         if (data) setStaffList(data);
     };
 
-    const fetchRecentLogs = async () => {
+    const fetchRecentLogs = async (currentStaffList: any[] = staffList) => {
         const { data } = await supabase
             .from('attendance')
-            .select('*, staff(full_name)')
+            .select('*')
             .eq('restaurant_id', restaurantId)
             .order('check_in', { ascending: false })
             .limit(20);
-        if (data) setRecentLogs(data);
+        
+        if (data && currentStaffList.length > 0) {
+            // Client-side join to resolve staff names using either staff_id or staff_member_id
+            const enrichedData = data.map(log => {
+                const staffObj = currentStaffList.find(s => s.id === log.staff_member_id || s.user_id === log.staff_id);
+                return { ...log, staff: { full_name: staffObj?.full_name } };
+            });
+            setRecentLogs(enrichedData);
+        } else if (data) {
+            setRecentLogs(data); // Will re-run when staffList populates
+        }
     };
 
     // --- Face Recognition Logic ---
@@ -151,7 +167,7 @@ const AttendanceTracker = () => {
         const { error } = await supabase
             .from('attendance')
             .insert([{
-                staff_id: staff.id,
+                staff_member_id: staff.id,
                 restaurant_id: restaurantId,
                 check_in: new Date().toISOString(),
                 shift_type: shiftType,
@@ -163,7 +179,8 @@ const AttendanceTracker = () => {
             fetchRecentLogs();
             stopCamera();
         } else {
-            setCameraError("Database error while clocking in.");
+            console.error("Supabase insert error:", error);
+            setCameraError(`Database error: ${error.message || error.details || JSON.stringify(error)}`);
         }
         setCameraLoading(false);
     };
@@ -175,7 +192,7 @@ const AttendanceTracker = () => {
         const { data: session } = await supabase
             .from('attendance')
             .select('*')
-            .eq('staff_id', staff.id)
+            .eq('staff_member_id', staff.id)
             .eq('restaurant_id', restaurantId)
             .gte('check_in', `${today}T00:00:00`)
             .is('check_out', null)
@@ -212,7 +229,7 @@ const AttendanceTracker = () => {
         const { error } = await supabase
             .from('attendance')
             .insert([{
-                staff_id: selectedStaffForAdmin, // Fixed from staff_member_id
+                staff_member_id: selectedStaffForAdmin,
                 restaurant_id: restaurantId,
                 check_in: new Date().toISOString(),
                 check_out: new Date().toISOString(),
