@@ -88,6 +88,35 @@ const PayrollManager = () => {
 
     const filteredStaff = staff.filter(s => s.full_name?.toLowerCase().includes(searchQuery.toLowerCase()));
 
+    const handleExportReport = () => {
+        if (filteredStaff.length === 0) return;
+        let csvContent = "data:text/csv;charset=utf-8,Staff Member,Role,Days Worked,Total Hours,Estimated Salary\n";
+        filteredStaff.forEach(member => {
+            const stats = calculateStats(member);
+            const name = (member.full_name || '').replace(/,/g, '');
+            const role = (member.role || 'Staff').replace(/,/g, '');
+            const salary = stats.salary.replace(/,/g, '');
+            csvContent += `${name},${role},${stats.days},${stats.hours},${salary}\n`;
+        });
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", `Payroll_Report_${selectedMonth}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleGenerateBatch = () => {
+        if (filteredStaff.length === 0) return alert("No staff available for batch generation.");
+        alert(`Generating batch salary receipts for ${filteredStaff.length} staff member(s) for ${selectedMonth}...\n(Batch processing will be fully integrated shortly)`);
+    };
+
+    const handleGenerateReceipt = (member: any) => {
+        const stats = calculateStats(member);
+        alert(`Salary Receipt: ${member.full_name}\nMonth: ${selectedMonth}\nDays Worked: ${stats.days}\nHours Worked: ${stats.hours}\nNet Pay: ETB ${stats.salary}\n\n(Detailed receipt printing coming soon)`);
+    };
+
     return (
         <div className="space-y-8 animate-in fade-in duration-500">
             <header className="flex flex-col sm:flex-row justify-between sm:items-end gap-4">
@@ -118,7 +147,7 @@ const PayrollManager = () => {
                             className="bg-background/50 border border-border/50 pl-10 pr-4 py-2 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none w-full font-medium"
                         />
                     </div>
-                    <button className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/10 px-4 py-2 rounded-xl transition-all">
+                    <button onClick={handleExportReport} className="flex items-center gap-2 text-xs font-black uppercase tracking-widest text-primary hover:bg-primary/10 px-4 py-2 rounded-xl transition-all">
                         <Download size={14} /> Export Report
                     </button>
                 </div>
@@ -170,7 +199,7 @@ const PayrollManager = () => {
                                             </div>
                                         </td>
                                         <td className="px-8 py-5 text-right">
-                                            <button className="text-muted-foreground hover:text-foreground p-2 rounded-lg transition-colors"><FileText size={18} /></button>
+                                            <button onClick={() => handleGenerateReceipt(member)} className="text-muted-foreground hover:text-foreground p-2 rounded-lg transition-colors"><FileText size={18} /></button>
                                         </td>
                                     </tr>
                                 );
@@ -192,7 +221,7 @@ const PayrollManager = () => {
                         </div>
                         <h3 className="text-xl font-black uppercase tracking-tighter mb-2">Process All Salaries</h3>
                         <p className="text-white/80 text-sm font-medium mb-6">Confirm and generate salary receipts for all active staff in one click.</p>
-                        <button className="bg-white text-primary px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-lg">Generate Batch</button>
+                        <button onClick={handleGenerateBatch} className="bg-white text-primary px-6 py-3 rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-white/90 transition-all active:scale-95 shadow-lg">Generate Batch</button>
                     </div>
                     <Banknote className="absolute -bottom-10 -right-10 text-white/10 w-64 h-64 rotate-12 group-hover:scale-110 transition-transform duration-700" />
                 </div>

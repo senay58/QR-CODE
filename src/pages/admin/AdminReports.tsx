@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { Download, Search, TrendingUp, DollarSign, Package, RotateCcw, Trash2, AlertTriangle, X } from 'lucide-react';
+import { Download, Search, TrendingUp, DollarSign, Package, RotateCcw, Trash2, AlertTriangle, X, Users } from 'lucide-react';
 
 interface ReportOrder {
     id: string;
@@ -23,10 +23,15 @@ const AdminReports = () => {
     const { restaurantId } = useAuth();
     const [orders, setOrders] = useState<ReportOrder[]>([]);
     const [loading, setLoading] = useState(true);
+    const [activeTab, setActiveTab] = useState<'sales' | 'attendance'>('sales');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [searchQuery, setSearchQuery] = useState('');
     const [sourceFilter, setSourceFilter] = useState('all');
+
+    // Attendance State
+    const [attendanceLogs, setAttendanceLogs] = useState<any[]>([]);
+    const [staffStats, setStaffStats] = useState<any[]>([]);
 
     // Delete state
     const [deletingFiltered, setDeletingFiltered] = useState(false);
@@ -47,36 +52,95 @@ const AdminReports = () => {
     }, [startDate, endDate, restaurantId]);
 
     const fetchReports = async () => {
-        if (!restaurantId) {
-            console.log("AdminReports: restaurantId is null, skipping fetch");
-            setLoading(false);
-            return;
-        }
+        if (!restaurantId) return;
         setLoading(true);
-        let query = supabase
-            .from('orders')
-            .select(`
-                *,
-                order_items (
-                    quantity,
-                    item_price,
-                    extras_snapshot,
-                    menu_items (name)
-                )
-            `)
-            .eq('restaurant_id', restaurantId)
-            .order('created_at', { ascending: false });
 
-        if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
-        if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+        if (activeTab === 'sales') {
+            let query = supabase
+                .from('orders')
+                .select(`
+                    *,
+                    order_items (
+                        quantity,
+                        item_price,
+                        extras_snapshot,
+                        menu_items (name)
+                    )
+                `)
+                .eq('restaurant_id', restaurantId)
+                .order('created_at', { ascending: false });
 
-        const { data, error } = await query;
-        if (error) {
-            console.error("AdminReports fetch error:", error);
-            setOrders([]);
+            if (startDate) query = query.gte('created_at', `${startDate}T00:00:00`);
+            if (endDate) query = query.lte('created_at', `${endDate}T23:59:59`);
+
+            const { data, error } = await query;
+            if (!error) setOrders(data || []);
         } else {
-            setOrders(data || []);
+            // Fetch Attendance
+            let query = supabase
+                .from('attendance')
+                .select('*, staff(full_name, role)')
+                .eq('restaurant_id', restaurantId)
+                .order('check_in', { ascending: false });
+
+            if (startDate) query = query.gte('check_in', `${startDate}T00:00:00`);
+            if (endDate) query = query.lte('check_in', `${endDate}T23:59:59`);
+
+            const { data, error } = await query;
+            if (!error && data) {
+                setAttendanceLogs(data);
+                
+                // Calculate Staff Stats
+                const stats: Record<string, any> = {};
+                data.forEach(log => {
+                    const staffId = log.staff_id;
+                    if (!staffId) return;
+                    
+                    if (!stats[staffId]) {
+                        stats[staffId] = {
+                            id: staffId,
+                            name: log.staff?.full_name || 'Unknown',
+                            role: log.staff?.role || 'Staff',
+                            totalHours: 0,
+                            absences: 0,
+                            daysPresent: new Set(),
+                            currentlyClockedIn: false
+                        };
+                    }
+
+                    if (log.is_day_off) {
+                        stats[staffId].absences += 1;
+                    } else {
+                        // Calculate hours
+                        let hours = 0;
+                        if (log.shift_type === 'full') hours = 14;
+                        else if (log.shift_type === 'half') hours = 7;
+                        else if (log.shift_type === 'overtime') hours = Number(log.overtime_hours) || 0;
+                        else if (log.check_out && log.check_in) {
+                            // Real calculation fallback
+                            const start = new Date(log.check_in).getTime();
+                            const end = new Date(log.check_out).getTime();
+                            hours = (end - start) / (1000 * 60 * 60);
+                        }
+                        
+                        stats[staffId].totalHours += hours;
+                        stats[staffId].daysPresent.add(new Date(log.check_in).toDateString());
+                        
+                        // Check if currently clocked in
+                        const today = new Date().toDateString();
+                        if (new Date(log.check_in).toDateString() === today && !log.check_out && !log.is_day_off) {
+                            stats[staffId].currentlyClockedIn = true;
+                        }
+                    }
+                });
+
+                setStaffStats(Object.values(stats).map(s => ({
+                    ...s,
+                    daysPresent: s.daysPresent.size
+                })));
+            }
         }
+        
         setLoading(false);
     };
 
@@ -200,9 +264,19 @@ const AdminReports = () => {
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
-                <div>
-                    <h1 className="text-3xl font-bold text-foreground">Sales & Activity Reports</h1>
-                    <p className="text-muted-foreground text-sm">Analyze your business performance and logs.</p>
+                <div className="flex bg-secondary/30 p-1 rounded-2xl border border-border w-max">
+                    <button
+                        onClick={() => setActiveTab('sales')}
+                        className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'sales' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:bg-secondary/80'}`}
+                    >
+                        <TrendingUp size={16} /> Sales & Activity
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('attendance')}
+                        className={`px-6 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-all ${activeTab === 'attendance' ? 'bg-primary text-primary-foreground shadow-md' : 'text-muted-foreground hover:bg-secondary/80'}`}
+                    >
+                        <Users size={16} /> HR & Attendance
+                    </button>
                 </div>
                 <button
                     onClick={() => window.print()}
@@ -215,19 +289,21 @@ const AdminReports = () => {
             {/* Filters */}
             <div className="bg-card border border-border rounded-2xl p-4 shadow-sm space-y-4 print:hidden">
                 <div className="flex flex-wrap gap-4 items-end">
-                    <div className="flex-1 min-w-[180px]">
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Search Table / Order ID</label>
-                        <div className="relative">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={e => setSearchQuery(e.target.value)}
-                                className="w-full bg-secondary/30 border border-border pl-10 pr-4 py-2 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none"
-                                placeholder="Search..."
-                            />
+                    {activeTab === 'sales' && (
+                        <div className="flex-1 min-w-[180px]">
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Search Table / Order ID</label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" size={16} />
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={e => setSearchQuery(e.target.value)}
+                                    className="w-full bg-secondary/30 border border-border pl-10 pr-4 py-2 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none"
+                                    placeholder="Search..."
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
                     <div>
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Start Date</label>
                         <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} className="bg-secondary/30 border border-border px-4 py-2 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none" />
@@ -236,16 +312,18 @@ const AdminReports = () => {
                         <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">End Date</label>
                         <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="bg-secondary/30 border border-border px-4 py-2 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none" />
                     </div>
-                    <div>
-                        <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Source</label>
-                        <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="bg-secondary/30 border border-border px-4 py-2 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none">
-                            <option value="all">All Sources</option>
-                            <option value="pos">POS (Manual)</option>
-                            <option value="walkin">Walk-in</option>
-                            <option value="apartment">Apartment</option>
-                            <option value="delivery">Delivery</option>
-                        </select>
-                    </div>
+                    {activeTab === 'sales' && (
+                        <div>
+                            <label className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-1 block">Source</label>
+                            <select value={sourceFilter} onChange={e => setSourceFilter(e.target.value)} className="bg-secondary/30 border border-border px-4 py-2 rounded-xl text-sm focus:ring-2 focus:ring-primary outline-none">
+                                <option value="all">All Sources</option>
+                                <option value="pos">POS (Manual)</option>
+                                <option value="walkin">Walk-in</option>
+                                <option value="apartment">Apartment</option>
+                                <option value="delivery">Delivery</option>
+                            </select>
+                        </div>
+                    )}
 
                     {/* Reset / Action buttons */}
                     <div className="flex gap-2 items-end flex-wrap">
@@ -258,7 +336,7 @@ const AdminReports = () => {
                                 <RotateCcw size={14} /> Reset Filters
                             </button>
                         )}
-                        {filteredOrders.length > 0 && (
+                        {activeTab === 'sales' && filteredOrders.length > 0 && (
                             <button
                                 onClick={handleDeleteFiltered}
                                 disabled={deletingFiltered}
@@ -272,7 +350,9 @@ const AdminReports = () => {
                 </div>
             </div>
 
-            {/* Quick Stats */}
+            {activeTab === 'sales' ? (
+                <>
+                    {/* Quick Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 print:hidden">
                 <div className="bg-primary/5 border border-primary/20 p-4 rounded-2xl">
                     <div className="flex justify-between items-start">
@@ -432,6 +512,99 @@ const AdminReports = () => {
                     )}
                 </div>
             </div>
+            </>
+            ) : (
+                <>
+                {/* ATTENDANCE TAB */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 print:hidden">
+                    {staffStats.map(staff => (
+                        <div key={staff.id} className={`p-4 rounded-2xl border ${staff.currentlyClockedIn ? 'bg-green-500/10 border-green-500/30' : 'bg-card border-border'} shadow-sm relative overflow-hidden`}>
+                            {staff.currentlyClockedIn && (
+                                <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-bl from-green-500/30 to-transparent flex items-start justify-end p-2 pointer-events-none">
+                                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                                </div>
+                            )}
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${staff.currentlyClockedIn ? 'bg-green-500/20 border-green-500/40 text-green-600' : 'bg-secondary border-border text-muted-foreground'}`}>
+                                    <Users size={18} />
+                                </div>
+                                <div>
+                                    <h3 className="font-bold text-sm leading-tight text-foreground">{staff.name}</h3>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{staff.role}</p>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-2 mt-4 pt-4 border-t border-border/50">
+                                <div>
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Total Hours</p>
+                                    <p className="font-black text-lg leading-none">{staff.totalHours.toFixed(1)}<span className="text-xs text-muted-foreground font-bold">h</span></p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest mb-0.5">Absences</p>
+                                    <p className={`font-black text-lg leading-none ${staff.absences > 0 ? 'text-red-500' : 'text-green-500'}`}>{staff.absences}</p>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                    {staffStats.length === 0 && (
+                        <div className="col-span-4 bg-card border border-border p-8 rounded-2xl text-center text-muted-foreground italic shadow-sm">
+                            No attendance data available for the selected period.
+                        </div>
+                    )}
+                </div>
+
+                {/* Detailed Attendance Log Table */}
+                <div className="bg-card border border-border rounded-2xl shadow-sm mt-6 print:!block print-table-container">
+                    <table className="w-full text-left border-collapse print:!w-full">
+                        <thead className="bg-secondary/50 text-[10px] uppercase font-bold text-muted-foreground tracking-widest">
+                            <tr>
+                                <th className="px-6 py-4">Date</th>
+                                <th className="px-6 py-4">Staff Member</th>
+                                <th className="px-6 py-4">Clock In</th>
+                                <th className="px-6 py-4">Clock Out</th>
+                                <th className="px-6 py-4">Shift Setup</th>
+                                <th className="px-6 py-4 text-right">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-border">
+                            {attendanceLogs.map(log => (
+                                <tr key={log.id} className={`hover:bg-secondary/20 transition-colors ${log.is_day_off ? 'opacity-70 bg-secondary/10' : ''}`}>
+                                    <td className="px-6 py-4 text-xs font-bold whitespace-nowrap">
+                                        {new Date(log.check_in).toLocaleDateString()}
+                                    </td>
+                                    <td className="px-6 py-4">
+                                        <div className="font-bold text-sm">{log.staff?.full_name || 'System / Kiosk'}</div>
+                                        <div className="text-[10px] text-muted-foreground uppercase font-black tracking-widest">{log.staff?.role}</div>
+                                    </td>
+                                    <td className="px-6 py-4 text-xs font-mono">
+                                        {log.is_day_off ? '--:--' : new Date(log.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                    </td>
+                                    <td className="px-6 py-4 text-xs font-mono">
+                                        {log.is_day_off ? '--:--' : log.check_out ? new Date(log.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Active...'}
+                                    </td>
+                                    <td className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                        {log.shift_type === 'full' ? '14 Hours (Full)' : 
+                                         log.shift_type === 'half' ? '7 Hours (Half)' : 
+                                         log.shift_type === 'overtime' ? `Overtime (${log.overtime_hours}h)` : 
+                                         log.is_day_off ? 'N/A' : log.shift_type}
+                                    </td>
+                                    <td className="px-6 py-4 text-right">
+                                        {log.is_day_off ? (
+                                            <span className="px-2 py-1 rounded border bg-blue-500/10 text-blue-500 border-blue-500/20 text-[9px] font-black uppercase tracking-widest">Day Off</span>
+                                        ) : !log.check_out ? (
+                                            <span className="px-2 py-1 rounded border bg-green-500/10 text-green-500 border-green-500/20 text-[9px] font-black uppercase tracking-widest flex items-center gap-1 w-max ml-auto">
+                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span> Clocked In
+                                            </span>
+                                        ) : (
+                                            <span className="px-2 py-1 rounded border bg-secondary border-border text-muted-foreground text-[9px] font-black uppercase tracking-widest">Completed</span>
+                                        )}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+                </>
+            )}
 
             <style dangerouslySetInnerHTML={{
                 __html: `

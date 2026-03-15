@@ -539,15 +539,15 @@ const CustomerMenu = () => {
                     [1, 2, 3].map(n => <div key={n} className="bg-card/70 backdrop-blur-md flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/40 animate-pulse h-32" />)
                 ) : currentItems.length > 0 ? (
                     currentItems.map((item) => (
-                        <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
+                        <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3 p-3 sm:gap-4 sm:p-4 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
                             {/* Image */}
-                            <div className="w-28 h-28 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
+                            <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
                                 {item.image_url ? (
                                     <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
                                 ) : (
                                     <div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>
                                 )}
-                                {item.is_fasting && (
+                                {(item.is_fasting || categories.find(c => c.id === item.category_id)?.name.toLowerCase().includes('fasting')) && (
                                     <div className="absolute bottom-2 left-2 bg-green-500/20 backdrop-blur-md text-green-600 dark:text-green-400 p-1 rounded-full border border-green-500/30" title="Fasting Meal">
                                         🌿
                                     </div>
@@ -561,17 +561,22 @@ const CustomerMenu = () => {
 
                             {/* Info */}
                             <div className="flex flex-col flex-grow justify-between min-w-0">
-                                <div className="flex items-start justify-between gap-2">
-                                    <div className="min-w-0 w-full text-left">
-                                        <h3 className="font-bold text-foreground text-base leading-tight truncate">{item.name}</h3>
+                                <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                                    <div className="min-w-0 flex-1 text-left">
+                                        <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight break-words pr-1">
+                                            {item.name}
+                                            {(item.is_fasting || categories.find(c => c.id === item.category_id)?.name.toLowerCase().includes('fasting')) && (
+                                                <span className="inline-block ml-1" title="Fasting Option">🌿</span>
+                                            )}
+                                        </h3>
                                         {item.average_rating > 0 && renderStars(item.average_rating, item.total_ratings || 0)}
                                     </div>
-                                    <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-sm px-2.5 py-1 whitespace-nowrap">
+                                    <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-[11px] sm:text-sm px-2 py-1 sm:px-2.5 sm:py-1 whitespace-nowrap">
                                         ETB {Number(item.base_price).toFixed(2)}
                                     </span>
                                 </div>
 
-                                <p className="text-xs text-muted-foreground mt-1 uppercase font-bold tracking-tight text-left leading-relaxed">{item.description}</p>
+                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 uppercase font-bold tracking-tight text-left leading-relaxed line-clamp-2 sm:line-clamp-none">{item.description}</p>
 
                                 <div className="flex items-center justify-between mt-2">
                                     <div className="flex flex-wrap gap-1">

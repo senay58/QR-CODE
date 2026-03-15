@@ -1,53 +1,43 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { Clock, Calendar, UserCheck } from 'lucide-react';
+import { Clock, Calendar, UserCheck, Camera, X } from 'lucide-react';
+import * as faceapi from '@vladmandic/face-api';
+import { loadFaceModels } from '../../lib/faceApiUtils';
 
 const AttendanceTracker = () => {
-    const { user, restaurantId, role } = useAuth();
+    const { restaurantId, role } = useAuth();
     const isAdmin = role === 'admin' || role === 'owner' || role === 'super_admin';
     const [loading, setLoading] = useState(false);
-    const [status, setStatus] = useState<'in' | 'out' | 'none'>('none');
-    const [shiftType, setShiftType] = useState<'full' | 'half' | 'overtime'>('full');
-    const [otHours, setOtHours] = useState('');
-    const [todayLog, setTodayLog] = useState<any>(null);
+    
+    // Admin features
+    const [selectedStaffForAdmin, setSelectedStaffForAdmin] = useState('');
+    
+    // Shared state
     const [recentLogs, setRecentLogs] = useState<any[]>([]);
     const [staffList, setStaffList] = useState<any[]>([]);
-    const [selectedStaffForAdmin, setSelectedStaffForAdmin] = useState('');
+
+    // Face Recognition Kiosk State
+    const [scanMode, setScanMode] = useState<'in' | 'out' | null>(null);
+    const [shiftType, setShiftType] = useState<'full' | 'half' | 'overtime'>('full');
+    const [otHours, setOtHours] = useState('');
+    
+    const [cameraLoading, setCameraLoading] = useState(false);
+    const [cameraMsg, setCameraMsg] = useState('');
+    const [cameraError, setCameraError] = useState('');
+    const videoRef = useRef<HTMLVideoElement>(null);
 
     useEffect(() => {
-        if (user && restaurantId) {
-            checkCurrentStatus();
+        if (restaurantId) {
             fetchRecentLogs();
-            if (isAdmin) fetchStaffList();
+            fetchStaffList();
         }
-    }, [user, restaurantId, role]);
+    }, [restaurantId]);
+
 
     const fetchStaffList = async () => {
         const { data } = await supabase.from('staff').select('*').eq('restaurant_id', restaurantId).eq('is_active', true);
         if (data) setStaffList(data);
-    };
-
-    const checkCurrentStatus = async () => {
-        const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabase
-            .from('attendance')
-            .select('*')
-            .eq('staff_id', user?.id)
-            .eq('restaurant_id', restaurantId)
-            .gte('check_in', `${today}T00:00:00`)
-            .order('check_in', { ascending: false })
-            .limit(1)
-            .single();
-
-        if (data) {
-            setTodayLog(data);
-            setShiftType(data.shift_type || 'full');
-            setOtHours(data.overtime_hours?.toString() || '');
-            setStatus(data.check_out ? 'out' : 'in');
-        } else {
-            setStatus('none');
-        }
     };
 
     const fetchRecentLogs = async () => {
@@ -60,13 +50,108 @@ const AttendanceTracker = () => {
         if (data) setRecentLogs(data);
     };
 
-    const handleClockIn = async () => {
-        if (!user || !restaurantId) return;
-        setLoading(true);
+    // --- Face Recognition Logic ---
+    const openCamera = async (mode: 'in' | 'out') => {
+        setScanMode(mode);
+        setCameraLoading(true);
+        setCameraError('');
+        setCameraMsg('Loading face models & calibrating camera...');
+        try {
+            await loadFaceModels(); // Only load models when user clicks
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        } catch (err: any) {
+            setCameraError(err.message || 'Failed to access camera.');
+        } finally {
+            setCameraLoading(false);
+            setCameraMsg('Align your face within the frame and hold still.');
+        }
+    };
+
+    const stopCamera = () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+        setScanMode(null);
+        setCameraMsg('');
+        setCameraError('');
+    };
+
+    const findMatchingStaff = (descriptor: Float32Array) => {
+        let bestMatch = null;
+        let minDistance = 0.55; // Strict threshold to avoid false positives
+        
+        for (const staff of staffList) {
+            if (!staff.face_descriptor) continue;
+            // Face descriptor is stored as a JSON array of floats
+            const storedDescriptor = new Float32Array(staff.face_descriptor);
+            const distance = faceapi.euclideanDistance(descriptor, storedDescriptor);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                bestMatch = staff;
+            }
+        }
+        return bestMatch;
+    };
+
+    const handleScanFace = async () => {
+        if (!videoRef.current) return;
+
+        // Wait for video to have actual frames
+        if (videoRef.current.readyState < 2) {
+            setCameraError("Camera not ready yet — please wait a moment and try again.");
+            return;
+        }
+
+        setCameraLoading(true);
+        setCameraMsg('Analyzing facial features...');
+        setCameraError('');
+        
+        try {
+            const detection = await faceapi
+                .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+            
+            if (!detection) {
+                setCameraError("No face detected — move closer and ensure good lighting.");
+                return;
+            }
+
+            const matchedStaff = findMatchingStaff(detection.descriptor);
+            
+            if (!matchedStaff) {
+                setCameraError("Face Not Recognized — Please Try Again or Contact Manager.");
+                return;
+            }
+
+            setCameraMsg(`Welcome, ${matchedStaff.full_name}! Processing...`);
+            
+            if (scanMode === 'in') {
+                await processClockIn(matchedStaff);
+            } else if (scanMode === 'out') {
+                await processClockOut(matchedStaff);
+            }
+            
+        } catch (err: any) {
+            console.error(err);
+            setCameraError(err?.message || "An error occurred during facial recognition.");
+        } finally {
+            // Always reset loading so the button is never permanently stuck
+            setCameraLoading(false);
+        }
+    };
+
+    const processClockIn = async (staff: any) => {
         const { error } = await supabase
             .from('attendance')
             .insert([{
-                staff_id: user.id,
+                staff_id: staff.id,
                 restaurant_id: restaurantId,
                 check_in: new Date().toISOString(),
                 shift_type: shiftType,
@@ -74,10 +159,51 @@ const AttendanceTracker = () => {
             }]);
         
         if (!error) {
-            checkCurrentStatus();
+            alert(`Attendance Recorded: ${staff.full_name} Clocked In at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`);
             fetchRecentLogs();
+            stopCamera();
+        } else {
+            setCameraError("Database error while clocking in.");
         }
-        setLoading(false);
+        setCameraLoading(false);
+    };
+
+    const processClockOut = async (staff: any) => {
+        const today = new Date().toISOString().split('T')[0];
+        
+        // Find their open session for today
+        const { data: session } = await supabase
+            .from('attendance')
+            .select('*')
+            .eq('staff_id', staff.id)
+            .eq('restaurant_id', restaurantId)
+            .gte('check_in', `${today}T00:00:00`)
+            .is('check_out', null)
+            .order('check_in', { ascending: false })
+            .limit(1)
+            .single();
+
+        if (!session) {
+            setCameraError(`No active Clock-In session found today for ${staff.full_name}.`);
+            setCameraLoading(false);
+            return;
+        }
+
+        const { error } = await supabase
+            .from('attendance')
+            .update({ 
+                check_out: new Date().toISOString(),
+            })
+            .eq('id', session.id);
+        
+        if (!error) {
+            alert(`Clock Out Recorded: ${staff.full_name} Clocked Out at ${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`);
+            fetchRecentLogs();
+            stopCamera();
+        } else {
+            setCameraError("Database error while clocking out.");
+        }
+        setCameraLoading(false);
     };
 
     const handleMarkDayOff = async () => {
@@ -86,12 +212,12 @@ const AttendanceTracker = () => {
         const { error } = await supabase
             .from('attendance')
             .insert([{
-                staff_member_id: selectedStaffForAdmin,
+                staff_id: selectedStaffForAdmin, // Fixed from staff_member_id
                 restaurant_id: restaurantId,
                 check_in: new Date().toISOString(),
                 check_out: new Date().toISOString(),
                 is_day_off: true,
-                shift_type: 'half' // default for day off maybe
+                shift_type: 'half' 
             }]);
         if (!error) {
             fetchRecentLogs();
@@ -100,49 +226,67 @@ const AttendanceTracker = () => {
         setLoading(false);
     };
 
-    const handleClockOut = async () => {
-        if (!todayLog || !restaurantId) return;
-        setLoading(true);
-        const { error } = await supabase
-            .from('attendance')
-            .update({ 
-                check_out: new Date().toISOString(),
-                shift_type: shiftType,
-                overtime_hours: shiftType === 'overtime' ? parseFloat(otHours) : null
-            })
-            .eq('id', todayLog.id);
-        
-        if (!error) {
-            checkCurrentStatus();
-            fetchRecentLogs();
-        }
-        setLoading(false);
-    };
-
     return (
         <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-500">
             <header>
                 <h1 className="text-3xl font-black tracking-tight text-foreground uppercase">Staff <span className="text-primary italic">Attendance</span></h1>
-                <p className="text-muted-foreground text-sm font-medium uppercase tracking-widest mt-1">Track your hours & manage productivity</p>
+                <p className="text-muted-foreground text-sm font-medium uppercase tracking-widest mt-1">Facial Recognition Kiosk</p>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* Status Card */}
-                <div className="md:col-span-1 bg-card/40 backdrop-blur-xl border border-border/50 p-8 rounded-[2.5rem] shadow-sm flex flex-col items-center justify-center text-center">
-                    <div className={`w-20 h-20 rounded-3xl flex items-center justify-center mb-6 shadow-inner ${status === 'in' ? 'bg-green-500/10 text-green-500' : 'bg-secondary text-muted-foreground'}`}>
-                        <Clock size={40} className={status === 'in' ? 'animate-pulse' : ''} />
+            {/* Face Scanning Modal */}
+            {scanMode && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-md">
+                    <div className="bg-card/90 backdrop-blur-2xl border border-border/50 shadow-2xl rounded-[2.5rem] p-8 max-w-md w-full animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-2xl font-black flex items-center gap-3"><Camera size={26} className="text-primary" /> {scanMode === 'in' ? 'Clock In' : 'Clock Out'}</h3>
+                            <button onClick={stopCamera} className="p-2 bg-secondary/50 rounded-full hover:bg-red-500/10 hover:text-red-500 transition-colors">
+                                <X size={24} />
+                            </button>
+                        </div>
+                        
+                        <div className="relative w-full aspect-[4/5] bg-black rounded-[2rem] overflow-hidden shadow-inner flex items-center justify-center mb-6 border-4 border-primary/20">
+                            <video ref={videoRef} autoPlay muted playsInline disablePictureInPicture controlsList="nodownload nofullscreen noremoteplayback" className="w-full h-full object-cover" />
+                            
+                            {/* Face Alignment Overlay */}
+                            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-60">
+                                <div className="w-48 h-64 border-[3px] border-dashed border-white rounded-[4rem] shadow-[0_0_0_9999px_rgba(0,0,0,0.4)] transition-all"></div>
+                            </div>
+
+                            {cameraLoading && (
+                                <div className="absolute inset-x-0 bottom-0 h-1 bg-primary/20 overflow-hidden">
+                                    <div className="h-full bg-primary animate-[pulse_1s_ease-in-out_infinite] w-full origin-left"></div>
+                                </div>
+                            )}
+                        </div>
+                        
+                        <p className={`text-center font-bold text-sm mb-6 h-4 transition-colors ${cameraError ? 'text-red-500' : 'text-primary'}`}>
+                            {cameraError || cameraMsg}
+                        </p>
+
+                        <button
+                            onClick={handleScanFace}
+                            disabled={cameraLoading || !videoRef.current?.srcObject}
+                            className={`w-full py-4 rounded-2xl font-black uppercase tracking-widest shadow-xl transition-all active:scale-95 flex items-center justify-center gap-3
+                                ${cameraError ? 'bg-secondary text-foreground' : 'bg-primary text-primary-foreground shadow-primary/20 hover:shadow-2xl'}`}
+                        >
+                            {cameraLoading ? 'Scanning...' : cameraError ? 'Try Again' : 'Scan Face'}
+                        </button>
                     </div>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {/* Kiosk Controls */}
+                <div className="md:col-span-1 bg-card/40 backdrop-blur-xl border border-border/50 p-8 rounded-[2.5rem] shadow-sm flex flex-col justify-center">
                     
-                    <h2 className="text-xl font-black text-foreground mb-1 uppercase tracking-tight">
-                        {status === 'in' ? 'Current Session' : 'Ready to work?'}
-                    </h2>
-                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-6">
-                        {status === 'in' ? `Started at ${new Date(todayLog.check_in).toLocaleTimeString()}` : 'Select your shift & clock in'}
+                    <h2 className="text-2xl font-black text-foreground mb-2 tracking-tight">Kiosk Ready</h2>
+                    <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest mb-8">
+                        Select shift & scan face
                     </p>
 
-                    <div className="w-full mb-6 space-y-3">
+                    <div className="w-full mb-8 space-y-4 bg-secondary/30 p-4 rounded-3xl border border-border/40">
                         <div>
-                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-1.5 block">Shift Duration</label>
+                            <label className="text-[10px] font-black uppercase text-muted-foreground tracking-widest mb-2 block">Shift Duration (Clock In Only)</label>
                             <select
                                 value={shiftType}
                                 onChange={(e) => setShiftType(e.target.value as any)}
@@ -156,7 +300,7 @@ const AttendanceTracker = () => {
 
                         {shiftType === 'overtime' && (
                             <div className="animate-in slide-in-from-top-1 duration-300">
-                                <label className="text-[10px] font-black uppercase text-primary tracking-widest mb-1.5 block">Manual Hours</label>
+                                <label className="text-[10px] font-black uppercase text-primary tracking-widest mb-2 block">Manual Hours</label>
                                 <input 
                                     type="number" 
                                     value={otHours}
@@ -168,23 +312,21 @@ const AttendanceTracker = () => {
                         )}
                     </div>
 
-                    {status !== 'in' ? (
+                    <div className="space-y-4">
                         <button
-                            onClick={handleClockIn}
-                            disabled={loading || status === 'out'}
-                            className="w-full bg-primary text-primary-foreground py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-xl transition-all active:scale-95 disabled:opacity-50"
+                            onClick={() => openCamera('in')}
+                            className="w-full bg-primary text-primary-foreground py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:shadow-xl hover:bg-primary/90 transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
-                            {loading ? 'Clocking In...' : status === 'out' ? 'Finished for Today' : 'Clock In Now'}
+                            <UserCheck size={20} /> Clock In
                         </button>
-                    ) : (
+                        
                         <button
-                            onClick={handleClockOut}
-                            disabled={loading}
-                            className="w-full bg-destructive text-destructive-foreground py-4 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-destructive/20 hover:shadow-xl transition-all active:scale-95 disabled:opacity-50"
+                            onClick={() => openCamera('out')}
+                            className="w-full bg-secondary/80 text-foreground border border-border/60 py-5 rounded-[1.5rem] font-black uppercase tracking-widest shadow-sm hover:shadow-md hover:bg-secondary transition-all active:scale-95 flex items-center justify-center gap-2"
                         >
-                            {loading ? 'Clocking Out...' : 'Clock Out'}
+                            <Clock size={20} /> Clock Out
                         </button>
-                    )}
+                    </div>
                 </div>
 
                 {/* Left Side: History & Admin Actions */}
@@ -220,7 +362,7 @@ const AttendanceTracker = () => {
                     {/* History Table */}
                     <div className="bg-card/40 backdrop-blur-xl border border-border/50 rounded-[2.5rem] p-8 shadow-sm">
                         <h3 className="text-xl font-bold mb-6 flex items-center gap-2">
-                            <Clock className="text-primary" size={22} /> Global Log Feed
+                            <Clock className="text-primary" size={22} /> Recent Clock Events
                         </h3>
                         
                         <div className="space-y-4">
@@ -228,16 +370,17 @@ const AttendanceTracker = () => {
                                 <div key={log.id} className={`flex items-center justify-between p-4 rounded-2xl bg-secondary/30 border border-border/50 ${log.is_day_off ? 'opacity-60 grayscale' : ''}`}>
                                     <div className="flex items-center gap-4">
                                         <div className="w-10 h-10 bg-background rounded-xl flex items-center justify-center text-muted-foreground border border-border shrink-0">
-                                            <UserCheck size={18} />
+                                            {log.check_out ? <Clock size={16} /> : <UserCheck size={16} className="text-green-500" />}
                                         </div>
                                         <div>
                                             <p className="font-bold text-sm text-foreground flex items-center gap-2">
-                                                {log.staff?.full_name || 'System'}
+                                                {log.staff?.full_name || 'System / Unknown'}
                                                 {log.is_day_off && <span className="bg-blue-500/10 text-blue-500 text-[8px] font-black uppercase px-2 py-0.5 rounded border border-blue-500/20 tracking-widest">Day Off</span>}
+                                                {!log.check_out && !log.is_day_off && <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>}
                                             </p>
                                             <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">
-                                                {new Date(log.check_in).toLocaleDateString()} • {new Date(log.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
-                                                {log.check_out && ` - ${new Date(log.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
+                                                {new Date(log.check_in).toLocaleDateString()} • In: {new Date(log.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} 
+                                                {log.check_out && ` • Out: ${new Date(log.check_out).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`}
                                             </p>
                                         </div>
                                     </div>

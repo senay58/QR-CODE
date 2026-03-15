@@ -1,8 +1,10 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import type { FormEvent } from 'react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
-import { KeyRound, Mail, ShieldAlert, Users, Plus, Trash2 } from 'lucide-react';
+import { KeyRound, Mail, ShieldAlert, Users, Plus, Trash2, Camera, X } from 'lucide-react';
+import * as faceapi from '@vladmandic/face-api';
+import { loadFaceModels } from '../../lib/faceApiUtils';
 
 const AdminSettings = () => {
     const { user, restaurantId } = useAuth();
@@ -23,6 +25,73 @@ const AdminSettings = () => {
     const [workingDays, setWorkingDays] = useState('5');
     const [workingHours, setWorkingHours] = useState('8');
     const [staffLoading, setStaffLoading] = useState(false);
+
+    // Face Recognition State
+    const [faceDescriptor, setFaceDescriptor] = useState<Float32Array | null>(null);
+    const [isCameraOpen, setIsCameraOpen] = useState(false);
+    const [cameraLoading, setCameraLoading] = useState(false);
+    const [cameraError, setCameraError] = useState('');
+    const videoRef = useRef<HTMLVideoElement>(null);
+
+    // Load Face API Models
+
+    const startCamera = async () => {
+        setCameraLoading(true);
+        setCameraError('');
+        try {
+            await loadFaceModels();
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+            if (videoRef.current) {
+                videoRef.current.srcObject = stream;
+            }
+        } catch (err: any) {
+            setCameraError(err.message || 'Failed to access camera.');
+        } finally {
+            setCameraLoading(false);
+        }
+    };
+
+    const stopCamera = () => {
+        if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
+    };
+
+    const handleCaptureFace = async () => {
+        if (!videoRef.current) return;
+
+        // Wait for video to have frames
+        if (videoRef.current.readyState < 2) {
+            setCameraError("Camera not ready yet — please wait and try again.");
+            return;
+        }
+
+        setCameraLoading(true);
+        setCameraError('');
+        try {
+            const detection = await faceapi
+                .detectSingleFace(videoRef.current, new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.5 }))
+                .withFaceLandmarks()
+                .withFaceDescriptor();
+            
+            if (detection) {
+                setFaceDescriptor(detection.descriptor);
+                stopCamera();
+                setIsCameraOpen(false);
+                // Show success inline instead of alert
+            } else {
+                setCameraError("No face detected — move closer and ensure good lighting.");
+            }
+        } catch (err: any) {
+            console.error(err);
+            setCameraError(err?.message || "An error occurred during face extraction.");
+        } finally {
+            setCameraLoading(false);
+        }
+    };
+
 
     useEffect(() => {
         if (user) setNewEmail(user.email || '');
@@ -54,7 +123,8 @@ const AdminSettings = () => {
                 working_days_per_week: parseInt(workingDays) || 5,
                 working_hours_per_day: parseInt(workingHours) || 14,
                 restaurant_id: restaurantId,
-                is_active: true
+                is_active: true,
+                face_descriptor: faceDescriptor ? Array.from(faceDescriptor) : null
             }]);
             
             if (error) {
@@ -68,6 +138,7 @@ const AdminSettings = () => {
                 // Reset other fields to defaults if needed
                 setWorkingDays('5');
                 setWorkingHours('14');
+                setFaceDescriptor(null);
                 fetchStaff();
             }
         } catch (err: any) {
@@ -274,16 +345,75 @@ const AdminSettings = () => {
                             className="w-full px-4 py-2 bg-background border border-border rounded-lg text-sm"
                         />
                     </div>
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-2 flex flex-col sm:flex-row gap-4 mt-2">
+                        <button
+                            onClick={() => {
+                                setIsCameraOpen(true);
+                                setTimeout(startCamera, 300);
+                            }}
+                            className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold transition-all border ${faceDescriptor ? 'bg-green-500/10 text-green-600 border-green-500/20' : 'bg-secondary/50 text-muted-foreground border-border hover:bg-secondary'}`}
+                        >
+                            <Camera size={18} />
+                            {faceDescriptor ? 'Face Captured ✓' : 'Add Face Profile (Optional)'}
+                        </button>
                         <button
                             onClick={handleAddStaff}
                             disabled={staffLoading || !staffName}
-                            className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl transition-all"
+                            className="flex-[2] bg-primary text-primary-foreground py-3 rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary/20 hover:shadow-xl transition-all"
                         >
                             <Plus size={18} /> {staffLoading ? 'Registering...' : 'Register Staff Member'}
                         </button>
                     </div>
                 </div>
+
+                {/* Face Capture Modal */}
+                {isCameraOpen && (
+                    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm">
+                        <div className="bg-card border border-border shadow-2xl rounded-3xl p-6 max-w-md w-full animate-in zoom-in-95 duration-200">
+                            <div className="flex justify-between items-center mb-4">
+                                <h3 className="text-xl font-black flex items-center gap-2"><Camera size={20} className="text-primary" /> Face Registration</h3>
+                                <button onClick={() => { stopCamera(); setIsCameraOpen(false); }} className="p-2 bg-secondary rounded-full hover:bg-red-500/10 hover:text-red-500 transition-colors">
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-inner flex items-center justify-center mb-6 border border-border">
+                                {cameraLoading && !cameraError && (
+                                    <div className="absolute inset-0 flex items-center justify-center bg-black/50 z-10 backdrop-blur-sm">
+                                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                                    </div>
+                                )}
+                                <video ref={videoRef} autoPlay muted playsInline className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 border-4 border-primary/30 rounded-2xl pointer-events-none" style={{ borderRadius: '1rem' }} />
+                                {/* Face Area Guide Overlay */}
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-50">
+                                    <div className="w-32 h-40 border-2 border-dashed border-white rounded-[2rem]"></div>
+                                </div>
+                            </div>
+                            
+                            {cameraError && (
+                                <div className="p-3 mb-4 bg-red-500/10 text-red-500 text-xs font-bold rounded-xl border border-red-500/20 text-center">
+                                    {cameraError}
+                                </div>
+                            )}
+
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => { stopCamera(); setIsCameraOpen(false); }}
+                                    className="flex-1 py-3 bg-secondary text-muted-foreground font-bold rounded-xl hover:bg-secondary/80 transition-all"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleCaptureFace}
+                                    disabled={cameraLoading || !!cameraError || !videoRef.current?.srcObject}
+                                    className="flex-[2] py-3 bg-primary text-primary-foreground font-bold rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all disabled:opacity-50"
+                                >
+                                    Capture & Save
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <div className="space-y-2">
                     {staffList.map(staff => (
