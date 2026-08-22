@@ -84,14 +84,20 @@ const AdminKitchen = () => {
     const updateStatus = async (orderId: string, status: 'preparing' | 'completed') => {
         if (!restaurantId) return;
         const updatePayload: any = { status };
-        if (status === 'completed') updatePayload.completed_at = new Date().toISOString();
-
+        
+        // Some schemas don't have completed_at. Let's just update status.
         const { error } = await supabase
             .from('orders')
             .update(updatePayload)
             .eq('id', orderId)
             .eq('restaurant_id', restaurantId);
-        if (!error) fetchKitchenOrders();
+            
+        if (error) {
+            console.error('Update status error:', error);
+            alert(`Failed to update order: ${error.message}`);
+        } else {
+            fetchKitchenOrders();
+        }
     };
 
     const handleRefresh = async () => {

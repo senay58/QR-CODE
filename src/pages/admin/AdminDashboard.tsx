@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { LogOut, LayoutDashboard, UtensilsCrossed, QrCode, Settings, FileText, Menu, X as CloseIcon, Flame, UserCheck, Banknote, CheckCircle, Shield, Lock } from 'lucide-react';
+import { LogOut, LayoutDashboard, UtensilsCrossed, QrCode, Settings, FileText, Menu, X as CloseIcon, Flame, CheckCircle, Shield, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../hooks/useAuth';
 import { ThemeToggle } from '../../components/ThemeToggle';
@@ -33,9 +33,9 @@ const AdminDashboard = () => {
         setIsMobileMenuOpen(false);
     }, [location]);
 
-    // Check if we are already on an admin-only route upon initial load to handle direct visits
+    // Check if we are already on an admin-only route upon initial load
     useEffect(() => {
-        const adminPaths = ['/admin/menu', '/admin/qr', '/admin/attendance', '/admin/payroll', '/admin/reports', '/admin/settings'];
+        const adminPaths = ['/admin/menu', '/admin/qr', '/admin/reports', '/admin/settings'];
         if (adminPaths.some(p => location.pathname.startsWith(p)) && !isAdminVerified) {
             setShowAdminGate(true);
         }
@@ -51,7 +51,6 @@ const AdminDashboard = () => {
         setVerifying(true);
         setGateError('');
         try {
-            // Note: Even if logged in, this re-verifies credentials against Supabase
             const { error } = await supabase.auth.signInWithPassword({
                 email: adminEmail,
                 password: adminPassword
@@ -59,8 +58,6 @@ const AdminDashboard = () => {
             if (error) throw error;
             setIsAdminVerified(true);
             setShowAdminGate(false);
-            
-            // Navigate to management area so it doesn't stay on Completed Orders
             if (window.innerWidth < 1024) setIsMobileMenuOpen(false);
             navigate('/admin/menu');
         } catch (err: any) {
@@ -69,6 +66,13 @@ const AdminDashboard = () => {
             setVerifying(false);
         }
     };
+
+    // Restaurant name split for logo display
+    const restName = restaurant?.name || 'Fana Kitchen';
+    const nameParts = restName.split(' ');
+    const nameFirst = nameParts[0] || 'FANA';
+    const nameRest = nameParts.slice(1).join(' ') || 'KITCHEN';
+    const initials = nameParts.map((s: string) => s[0]).join('').substring(0, 2) || 'FK';
 
     const publicNavItems = [
         { to: "/admin", icon: LayoutDashboard, label: "Overview" },
@@ -80,8 +84,6 @@ const AdminDashboard = () => {
     const adminNavItems = [
         { to: "/admin/menu", icon: UtensilsCrossed, label: "Menu Editor" },
         { to: "/admin/qr", icon: QrCode, label: "QR Codes" },
-        { to: "/admin/attendance", icon: UserCheck, label: "Attendance" },
-        { to: "/admin/payroll", icon: Banknote, label: "Payroll" },
         { to: "/admin/reports", icon: FileText, label: "Reports" },
         { to: "/admin/settings", icon: Settings, label: "Settings" },
     ];
@@ -97,7 +99,7 @@ const AdminDashboard = () => {
             {/* Mobile Header */}
             <div className="lg:hidden print:hidden fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 px-4 flex items-center justify-between">
                 <h1 className="text-xl font-black tracking-tighter uppercase">
-                    {(restaurant?.name || 'SH').split(' ').map((s: string) => s[0]).join('')}
+                    {initials}
                 </h1>
                 <div className="flex items-center gap-2">
                     <ThemeToggle className="bg-transparent hover:bg-secondary/20 h-9 w-9" />
@@ -120,15 +122,15 @@ const AdminDashboard = () => {
                         className="flex items-center gap-3 group outline-none w-full"
                     >
                         <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center shrink-0 shadow-lg shadow-primary/20">
-                            <span className="text-white font-black text-sm">SH</span>
+                            <span className="text-primary-foreground font-black text-sm">{initials}</span>
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col items-start min-w-0 flex-1">
                                 <h1 className="text-xl font-black tracking-tighter text-foreground uppercase group-hover:text-primary transition-colors truncate w-full text-left">
-                                    {restaurant?.name.split(' ')[0] || 'SANDWICH'}
+                                    {nameFirst}
                                 </h1>
                                 <h1 className="text-xl font-black tracking-tighter text-primary uppercase transition-colors truncate w-full text-left -mt-1 shadow-primary/20">
-                                    {restaurant?.name.split(' ').slice(1).join(' ') || 'HOUSE'}
+                                    {nameRest}
                                 </h1>
                             </div>
                         )}
@@ -153,11 +155,11 @@ const AdminDashboard = () => {
                             <div>
                                 <div className={`text-[10px] font-black tracking-widest uppercase text-muted-foreground mb-2 px-4 flex justify-between items-center ${isCollapsed ? 'justify-center px-0' : ''}`}>
                                     {!isCollapsed && <span>Management</span>}
-                                    {!isCollapsed && <Lock size={12} className="text-orange-500" />}
+                                    {!isCollapsed && <Lock size={12} className="text-accent" />}
                                 </div>
                                 <button
                                     onClick={() => setShowAdminGate(true)}
-                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 font-bold bg-orange-500/10 text-orange-600 hover:bg-orange-500/20 w-full ${isCollapsed ? 'justify-center px-0 h-12 w-12 mx-auto' : ''}`}
+                                    className={`flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 font-bold bg-accent/10 text-accent hover:bg-accent/20 w-full ${isCollapsed ? 'justify-center px-0 h-12 w-12 mx-auto' : ''}`}
                                 >
                                     <Shield size={20} />
                                     {!isCollapsed && <span>Unlock Admin</span>}
@@ -168,21 +170,32 @@ const AdminDashboard = () => {
                         <div className="animate-in fade-in slide-in-from-right-4 duration-300">
                             <div className="mb-4">
                                 <div className={`text-[10px] font-black tracking-widest uppercase text-muted-foreground mb-2 px-4 flex justify-between items-center ${isCollapsed ? 'justify-center px-0' : ''}`}>
-                                    {!isCollapsed && <span className="text-orange-500">Management</span>}
+                                    {!isCollapsed && <span>Operations</span>}
+                                </div>
+                                {publicNavItems.map((item) => (
+                                    <NavLink key={item.to} to={item.to} end={item.to === "/admin"} className={navClass}>
+                                        <item.icon size={20} />
+                                        {!isCollapsed && <span>{item.label}</span>}
+                                    </NavLink>
+                                ))}
+                            </div>
+                            <div>
+                                <div className={`text-[10px] font-black tracking-widest uppercase text-muted-foreground mb-2 px-4 flex justify-between items-center ${isCollapsed ? 'justify-center px-0' : ''}`}>
+                                    {!isCollapsed && <span className="text-accent">Management</span>}
                                     {!isCollapsed && (
                                         <button
                                             onClick={() => {
                                                 setIsAdminVerified(false);
                                                 navigate('/admin');
                                             }}
-                                            className="text-orange-500 hover:text-white transition-colors bg-orange-500/10 hover:bg-orange-500 px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer"
+                                            className="text-accent hover:text-white transition-colors bg-accent/10 hover:bg-accent px-2 py-1 rounded-md flex items-center gap-1 cursor-pointer"
                                             title="Lock Controls"
                                         >
                                             <Lock size={12} /> Lock
                                         </button>
                                     )}
                                     {isCollapsed && (
-                                        <button onClick={() => { setIsAdminVerified(false); navigate('/admin'); }} className="mx-auto text-orange-500">
+                                        <button onClick={() => { setIsAdminVerified(false); navigate('/admin'); }} className="mx-auto text-accent">
                                             <Lock size={14} />
                                         </button>
                                     )}
@@ -201,7 +214,6 @@ const AdminDashboard = () => {
                 </nav>
 
                 <div className="p-4 border-t border-border flex flex-col gap-2 relative">
-                    {/* The ThemeToggle itself is perfectly positioned via absolute overlay so the whole row is clickable */}
                     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-secondary/80 transition-all font-bold text-muted-foreground relative cursor-pointer group ${isCollapsed ? 'justify-center px-0' : ''}`}>
                         <div className="absolute inset-0 z-10 opacity-0 child-pointer-events-none">
                             <ThemeToggle className="w-full h-full p-0" />
@@ -211,7 +223,7 @@ const AdminDashboard = () => {
                             {!isCollapsed && <span className="text-sm group-hover:text-foreground transition-colors">Night Mode</span>}
                         </div>
                     </div>
-                    
+
                     <button
                         onClick={handleLogout}
                         className={`flex items-center gap-3 px-4 py-3 text-muted-foreground hover:text-red-500 transition-all font-bold w-full rounded-xl hover:bg-red-500/10 ${isCollapsed ? 'justify-center px-0' : ''}`}
@@ -234,13 +246,13 @@ const AdminDashboard = () => {
                     >
                         <div className="flex justify-between items-center mb-10 shrink-0">
                             <h1 className="text-xl font-black tracking-tighter">
-                                {restaurant?.name.split(' ')[0] || 'SANDWICH'}<span className="text-primary">{restaurant?.name.split(' ').slice(1).join(' ') || 'HOUSE'}</span>
+                                {nameFirst}<span className="text-primary">{nameRest}</span>
                             </h1>
                             <button onClick={() => setIsMobileMenuOpen(false)}>
                                 <CloseIcon size={24} />
                             </button>
                         </div>
-                        
+
                         <nav className="space-y-6 flex-1 overflow-y-auto">
                             {!isAdminVerified ? (
                                 <>
@@ -267,11 +279,11 @@ const AdminDashboard = () => {
                                     <div>
                                         <div className="text-xs font-black tracking-widest text-muted-foreground uppercase mb-3 flex items-center justify-between">
                                             <span>Management</span>
-                                            <Lock size={12} className="text-orange-500" />
+                                            <Lock size={12} className="text-accent" />
                                         </div>
                                         <button
                                             onClick={() => setShowAdminGate(true)}
-                                            className="flex items-center gap-4 p-3 rounded-xl font-bold bg-orange-500/10 text-orange-600 w-full"
+                                            className="flex items-center gap-4 p-3 rounded-xl font-bold bg-accent/10 text-accent w-full"
                                         >
                                             <Shield size={22} />
                                             <span>Unlock Admin</span>
@@ -279,39 +291,60 @@ const AdminDashboard = () => {
                                     </div>
                                 </>
                             ) : (
-                                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
-                                    <div className="text-xs font-black tracking-widest text-orange-500 uppercase mb-3 flex justify-between items-center">
-                                        <span>Management Controls</span>
-                                        <button
-                                            onClick={() => {
-                                                setIsAdminVerified(false);
-                                                navigate('/admin');
-                                            }}
-                                            className="text-white bg-orange-500 hover:bg-orange-600 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer shadow-lg shadow-orange-500/20"
-                                        >
-                                            <Lock size={12} /> Lock
-                                        </button>
+                                <div className="animate-in fade-in slide-in-from-right-4 duration-300 space-y-4">
+                                    <div>
+                                        <div className="text-xs font-black tracking-widest text-muted-foreground uppercase mb-3">Operations</div>
+                                        <div className="space-y-2">
+                                            {publicNavItems.map((item) => (
+                                                <NavLink
+                                                    key={item.to}
+                                                    to={item.to}
+                                                    end={item.to === "/admin"}
+                                                    className={({ isActive }) =>
+                                                        `flex items-center gap-4 p-3 rounded-xl font-bold transition-all ${isActive ? 'bg-primary text-white shadow-lg' : 'text-muted-foreground'}`
+                                                    }
+                                                    onClick={() => setIsMobileMenuOpen(false)}
+                                                >
+                                                    <item.icon size={22} />
+                                                    <span>{item.label}</span>
+                                                </NavLink>
+                                            ))}
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        {adminNavItems.map((item) => (
-                                            <NavLink
-                                                key={item.to}
-                                                to={item.to}
-                                                end={item.to === "/admin"}
-                                                className={({ isActive }) =>
-                                                    `flex items-center gap-4 p-3 rounded-xl font-bold transition-all ${isActive ? 'bg-primary text-white shadow-lg' : 'text-muted-foreground'}`
-                                                }
-                                                onClick={() => setIsMobileMenuOpen(false)}
+                                    <div>
+                                        <div className="text-xs font-black tracking-widest text-accent uppercase mb-3 flex justify-between items-center">
+                                            <span>Management Controls</span>
+                                            <button
+                                                onClick={() => {
+                                                    setIsAdminVerified(false);
+                                                    navigate('/admin');
+                                                }}
+                                                className="text-white bg-accent hover:bg-accent/80 transition-colors px-3 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer shadow-lg"
                                             >
-                                                <item.icon size={22} />
-                                                <span>{item.label}</span>
-                                            </NavLink>
-                                        ))}
+                                                <Lock size={12} /> Lock
+                                            </button>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {adminNavItems.map((item) => (
+                                                <NavLink
+                                                    key={item.to}
+                                                    to={item.to}
+                                                    end={item.to === "/admin"}
+                                                    className={({ isActive }) =>
+                                                        `flex items-center gap-4 p-3 rounded-xl font-bold transition-all ${isActive ? 'bg-primary text-white shadow-lg' : 'text-muted-foreground'}`
+                                                    }
+                                                    onClick={() => setIsMobileMenuOpen(false)}
+                                                >
+                                                    <item.icon size={22} />
+                                                    <span>{item.label}</span>
+                                                </NavLink>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
                             )}
                         </nav>
-                        
+
                         <div className="mt-8 pt-6 border-t border-border shrink-0">
                             <button
                                 onClick={handleLogout}
@@ -330,12 +363,12 @@ const AdminDashboard = () => {
                 <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
                     <div className="absolute inset-0 bg-background/80 backdrop-blur-md" onClick={() => setShowAdminGate(false)} />
                     <div className="relative bg-card border border-border shadow-2xl rounded-3xl p-8 max-w-sm w-full animate-in zoom-in-95 duration-200">
-                        <div className="w-16 h-16 bg-orange-500/10 rounded-full flex items-center justify-center mb-6 mx-auto text-orange-500">
+                        <div className="w-16 h-16 bg-accent/10 rounded-full flex items-center justify-center mb-6 mx-auto text-accent">
                             <Shield size={32} />
                         </div>
                         <h2 className="text-2xl font-black text-center mb-2">Admin Required</h2>
-                        <p className="text-muted-foreground text-center text-sm mb-6">Enter your email and password to access sensitive management areas.</p>
-                        
+                        <p className="text-muted-foreground text-center text-sm mb-6">Enter your credentials to access management areas.</p>
+
                         {gateError && (
                             <div className="p-3 bg-red-500/10 text-red-500 text-sm font-medium rounded-xl mb-4 border border-red-500/20 text-center">
                                 {gateError}
@@ -345,9 +378,9 @@ const AdminDashboard = () => {
                         <form onSubmit={handleVerifyAdmin} className="space-y-4">
                             <div>
                                 <label className="block text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-1 px-1">Email</label>
-                                <input 
-                                    type="email" 
-                                    required 
+                                <input
+                                    type="email"
+                                    required
                                     value={adminEmail}
                                     onChange={e => setAdminEmail(e.target.value)}
                                     className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
@@ -355,23 +388,23 @@ const AdminDashboard = () => {
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black tracking-widest text-muted-foreground uppercase mb-1 px-1">Password</label>
-                                <input 
-                                    type="password" 
-                                    required 
+                                <input
+                                    type="password"
+                                    required
                                     value={adminPassword}
                                     onChange={e => setAdminPassword(e.target.value)}
                                     className="w-full bg-background border border-border rounded-xl px-4 py-3 focus:ring-2 focus:ring-primary outline-none"
                                 />
                             </div>
-                            <button 
-                                type="submit" 
+                            <button
+                                type="submit"
                                 disabled={verifying}
                                 className="w-full bg-primary text-primary-foreground py-3 rounded-xl font-bold shadow-lg mt-2 disabled:opacity-50"
                             >
                                 {verifying ? 'Verifying...' : 'Unlock Controls'}
                             </button>
-                            <button 
-                                type="button" 
+                            <button
+                                type="button"
                                 onClick={() => setShowAdminGate(false)}
                                 className="w-full text-muted-foreground py-2 text-sm font-bold hover:text-foreground transition-colors"
                             >
@@ -385,14 +418,14 @@ const AdminDashboard = () => {
             {/* Main Content */}
             <main className="flex-1 overflow-y-auto overflow-x-hidden p-4 lg:p-8 pt-20 lg:pt-8 transition-all duration-300 bg-background/40">
                 <div className="max-w-7xl mx-auto h-full">
-                    {!isAdminVerified && ['/admin/menu', '/admin/qr', '/admin/attendance', '/admin/payroll', '/admin/reports', '/admin/settings'].some(p => location.pathname.startsWith(p)) ? (
+                    {!isAdminVerified && ['/admin/menu', '/admin/qr', '/admin/reports', '/admin/settings'].some(p => location.pathname.startsWith(p)) ? (
                         <div className="flex flex-col items-center justify-center h-full min-h-[60vh] text-center p-8 space-y-4">
-                            <Shield className="w-20 h-20 text-orange-500/20 mx-auto mb-4" />
+                            <Shield className="w-20 h-20 text-accent/20 mx-auto mb-4" />
                             <h2 className="text-3xl font-black">Management Locked</h2>
-                            <p className="text-muted-foreground max-w-md mx-auto mb-6">You must unlock the admin controls in the sidebar to access sensitive management areas like this.</p>
-                            <button 
-                                onClick={() => setShowAdminGate(true)} 
-                                className="px-8 py-4 bg-orange-500 hover:bg-orange-600 text-white font-black rounded-2xl shadow-xl shadow-orange-500/20 active:scale-95 transition-all flex items-center gap-3 uppercase tracking-widest"
+                            <p className="text-muted-foreground max-w-md mx-auto mb-6">You must unlock admin controls in the sidebar to access this area.</p>
+                            <button
+                                onClick={() => setShowAdminGate(true)}
+                                className="px-8 py-4 bg-accent hover:bg-accent/90 text-white font-black rounded-2xl shadow-xl active:scale-95 transition-all flex items-center gap-3 uppercase tracking-widest"
                             >
                                 <Lock size={20} />
                                 Unlock Admin

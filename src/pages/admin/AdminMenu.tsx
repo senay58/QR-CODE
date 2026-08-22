@@ -416,7 +416,7 @@ const AdminMenu = () => {
             <header className="mb-6 flex flex-col sm:flex-row justify-between sm:items-end gap-4">
                 <div>
                     <h2 className="text-2xl font-bold text-foreground">Menu Editor Interface</h2>
-                    <p className="text-muted-foreground text-sm">Manage Sandwich House offerings directly via the database.</p>
+                    <p className="text-muted-foreground text-sm">Manage Fana Kitchen menu items, categories, and extras.</p>
                 </div>
                 <div className="flex bg-secondary p-1 rounded-lg self-start sm:self-auto items-center gap-1">
                     {(['categories', 'items', 'extras'] as const).map(tab => (

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useParams } from 'react-router-dom';
 import { ThemeToggle } from '../components/ThemeToggle';
-import { Bell, Star, ShoppingCart, Plus, Minus, X, ClipboardList, Download, Tag, UtensilsCrossed, CheckCircle2, Search } from 'lucide-react';
+import { Bell, Star, ShoppingCart, Plus, Minus, X, ClipboardList, Download, Tag, UtensilsCrossed, CheckCircle2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import html2canvas from 'html2canvas';
 
@@ -110,10 +110,8 @@ const CustomerMenu = () => {
     const [categories, setCategories] = useState<any[]>([]);
     const [menuItems, setMenuItems] = useState<any[]>([]);
     const [loadingMenu, setLoadingMenu] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
     const [activeCategory, setActiveCategory] = useState<string | null>(null);
-    // activeSubCategory removed — subcategory nav replaced by scrollspy sections
-
+    const [activeSubCategory, setActiveSubCategory] = useState<string | null>(null);
 
     const [callingWaiter, setCallingWaiter] = useState(false);
     const [callSuccess, setCallSuccess] = useState(false);
@@ -388,7 +386,8 @@ const CustomerMenu = () => {
                     table_number: tableNumber,
                     status: 'pending',
                     source: isApartment ? 'apartment' : 'walkin',
-                    cart_snapshot: cart.length > 0 ? JSON.stringify(cart) : null
+                    cart_snapshot: cart.length > 0 ? JSON.stringify(cart) : null,
+                    restaurant_id: restaurantId
                 }]);
             if (error) throw error;
             setCallSuccess(true);
@@ -400,77 +399,6 @@ const CustomerMenu = () => {
             setCallingWaiter(false);
         }
     };
-
-    // --- Scroll-spy & category navigation ---
-    const topLevelCats = categories.filter(c => !c.parent_id);
-
-    const handleScrollToCategory = (catId: string) => {
-        setActiveCategory(catId);
-        const el = document.getElementById(`cat-${catId}`);
-        if (el) {
-            const offset = 140;
-            const top = el.getBoundingClientRect().top + window.scrollY - offset;
-            window.scrollTo({ top, behavior: 'smooth' });
-        }
-    };
-
-    useEffect(() => {
-        if (searchQuery || topLevelCats.length === 0) return;
-        
-        let isScrolling = false;
-        let lastCatId = '';
-
-        const handleScroll = () => {
-            if (!isScrolling) {
-                window.requestAnimationFrame(() => {
-                    const scrollPos = window.scrollY + 160; 
-                    
-                    let currentCat = topLevelCats[0]?.id;
-                    for (const cat of topLevelCats) {
-                        const el = document.getElementById(`cat-${cat.id}`);
-                        if (el && el.offsetTop <= scrollPos) {
-                            currentCat = cat.id;
-                        }
-                    }
-                    
-                    setActiveCategory(currentCat);
-
-                    if (currentCat && currentCat !== lastCatId) {
-                        lastCatId = currentCat;
-                        const tabEl = document.getElementById(`tab-${currentCat}`);
-                        if (tabEl && tabEl.parentElement) {
-                            const container = tabEl.parentElement;
-                            const scrollLeftTarget = tabEl.offsetLeft - (container.clientWidth / 2) + (tabEl.clientWidth / 2);
-                            container.scrollTo({ left: scrollLeftTarget, behavior: 'smooth' });
-                        }
-                    }
-                    
-                    isScrolling = false;
-                });
-            }
-            isScrolling = true;
-        };
-
-        window.addEventListener('scroll', handleScroll, { passive: true });
-        // Trigger once on mount
-        handleScroll();
-        
-        return () => window.removeEventListener('scroll', handleScroll);
-    }, [topLevelCats, searchQuery]);
-
-    // --- Search helpers ---
-    const isItemInCat = (item: any, catId: string) => {
-        if (item.category_id === catId) return true;
-        if (item.extra_category_ids?.includes(catId)) return true;
-        const subCats = categories.filter(c => c.parent_id === catId);
-        return subCats.some(sub => item.category_id === sub.id || item.extra_category_ids?.includes(sub.id));
-    };
-
-    const searchResults = menuItems.filter(i =>
-        i.is_active !== false &&
-        (i.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-         (i.description && i.description.toLowerCase().includes(searchQuery.toLowerCase())))
-    );
 
     // --- Save cart as image (walk-in) ---
     const handleSaveAsImage = async () => {
@@ -494,10 +422,21 @@ const CustomerMenu = () => {
         }
     };
 
+    // Subcategories of the currently active top-level category
+    const subCategories = categories.filter(c => c.parent_id === activeCategory);
 
-    // Subcategories of the currently active top-level category (kept for potential future use)
-    // const subCategories = categories.filter(c => c.parent_id === activeCategory);
-
+    const currentItems = menuItems.filter(i =>
+        i.is_active !== false &&
+        (
+            // Show all items under parent + its subcategories when "All" is active
+            activeSubCategory
+                ? i.category_id === activeSubCategory ||
+                  (i.extra_category_ids && i.extra_category_ids.includes(activeSubCategory))
+                : i.category_id === activeCategory ||
+                  (i.extra_category_ids && i.extra_category_ids.includes(activeCategory)) ||
+                  subCategories.some(sub => i.category_id === sub.id)
+        )
+    );
 
     const renderStars = (rating: number, count: number) => (
         <div className="flex items-center gap-1 mt-1 text-xs text-muted-foreground">
@@ -510,220 +449,155 @@ const CustomerMenu = () => {
         </div>
     );
 
-    const renderMenuItem = (item: any) => (
-        <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3 p-3 sm:gap-4 sm:p-4 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
-                {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>
-                )}
-                {(item.is_fasting || categories.find(c => c.id === item.category_id)?.name.toLowerCase().includes('fasting')) && (
-                    <div className="absolute bottom-2 left-2 bg-green-500/20 backdrop-blur-md text-green-600 dark:text-green-400 p-1 rounded-full border border-green-500/30" title="Fasting Meal">🌿</div>
-                )}
-                {(item.allowed_global_extras && item.allowed_global_extras.length > 0) && (
-                    <div className="absolute top-2 right-2 bg-primary/20 backdrop-blur-md text-primary p-1 rounded-full border border-primary/30" title="Extras Available">
-                        <Tag size={10} />
-                    </div>
-                )}
-            </div>
-            <div className="flex flex-col flex-grow justify-between min-w-0">
-                <div className="flex items-start justify-between gap-1.5 sm:gap-2">
-                    <div className="min-w-0 flex-1 text-left">
-                        <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight break-words pr-1">{item.name}</h3>
-                        {item.average_rating > 0 && renderStars(item.average_rating, item.total_ratings || 0)}
-                    </div>
-                    <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-[11px] sm:text-sm px-2 py-1 sm:px-2.5 sm:py-1 whitespace-nowrap">
-                        ETB {Number(item.base_price).toFixed(2)}
-                    </span>
-                </div>
-                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 uppercase font-bold tracking-tight text-left leading-relaxed line-clamp-2 sm:line-clamp-none">{item.description}</p>
-                <div className="flex items-center justify-between mt-2">
-                    <div className="flex flex-wrap gap-1">
-                        {(item.ingredients && item.ingredients.length > 0) && item.ingredients.slice(0, 3).map((ing: string, idx: number) => (
-                            <span key={idx} className="text-[9px] uppercase font-bold tracking-wider bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded border border-border/50">{ing}</span>
-                        ))}
-                    </div>
-                    <button onClick={() => handleOpenExtras(item)} className="ml-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-md px-4 py-2 text-sm active:scale-90" aria-label="Add to cart">
-                        <Plus size={16} /> Add
-                    </button>
-                </div>
-            </div>
-        </div>
-    );
-
     return (
-        <div className="min-h-screen bg-background text-foreground pb-36 font-sans selection:bg-primary/20 relative">
+        <div className="min-h-screen bg-background text-foreground pb-36 font-sans selection:bg-primary/20 relative overflow-x-hidden">
             <div className="fixed inset-0 bg-[radial-gradient(ellipse_at_top_right,_rgba(var(--primary),0.05)_0%,_transparent_70%)] pointer-events-none -z-20" />
 
             {/* ── Header ── */}
-            <header className="sticky top-0 z-40 bg-background/95 backdrop-blur-md border-b border-border shadow-sm">
-                <div className="px-4 py-2 flex flex-col gap-2">
-                    {/* Top Row */}
-                    <div className="flex items-center justify-between">
+            <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-md border-b border-border shadow-sm">
+                <div className="px-4 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
                         <div className="flex flex-col">
-                            <h1 className="text-xl font-black tracking-tighter text-foreground leading-none">
-                                {(() => {
-                                    const fullName = restaurant?.brand_name || restaurant?.name || 'Fana Kitchen';
-                                    const parts = fullName.split(' ');
-                                    const first = parts[0];
-                                    const rest = parts.slice(1).join(' ');
-                                    return <>{first}{rest && <span className="text-primary"> {rest}</span>}</>;
-                                })()}
+                            <h1 className="text-3xl font-black tracking-tighter text-foreground leading-none">
+                                {restaurant?.name.split(' ')[0] || 'LOGO'}<span className="text-primary">{restaurant?.name.split(' ').slice(1).join(' ') || ''}</span>
                             </h1>
-                            <span className="text-[9px] text-muted-foreground font-black tracking-widest uppercase bg-secondary/80 self-start px-1.5 py-0.5 rounded border border-border leading-none mt-0.5">
+                            <span className="text-[10px] text-muted-foreground font-black tracking-widest uppercase mt-1 bg-secondary/80 self-start px-2 py-0.5 rounded border border-border">
                                 ID: {personalizedLabel}
                             </span>
                         </div>
-                        <div className="flex items-center gap-2">
-                            {activeOrders.length > 0 && (
-                                <button
-                                    onClick={() => setIsTrackingOpen(true)}
-                                    className="p-1.5 bg-primary/10 text-primary rounded-lg relative hover:bg-primary/20 transition-all border border-primary/20"
-                                >
-                                    <Bell size={18} className="animate-pulse" />
-                                    <span className="absolute -top-1 -right-1 w-4 h-4 bg-primary text-white text-[9px] flex items-center justify-center rounded-full font-black">
-                                        {activeOrders.length}
-                                    </span>
-                                </button>
-                            )}
-                            <ThemeToggle />
-                        </div>
                     </div>
-
-                    {/* Search Bar Row */}
-                    <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
-                        <input
-                            type="text"
-                            placeholder="Search menu..."
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            className="w-full bg-secondary/60 border border-border/60 rounded-lg pl-9 pr-8 py-1.5 text-sm outline-none focus:border-primary/50 transition-colors"
-                        />
-                        {searchQuery && (
-                            <button onClick={() => setSearchQuery('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                                <X size={14} />
+                    <div className="flex items-center gap-3">
+                        {activeOrders.length > 0 && (
+                            <button
+                                onClick={() => setIsTrackingOpen(true)}
+                                className="p-2 bg-primary/10 text-primary rounded-xl relative hover:bg-primary/20 transition-all border border-primary/20 group shadow-sm active:scale-95"
+                                aria-label="Track orders"
+                            >
+                                <Bell size={20} className="animate-pulse group-hover:animate-none" />
+                                <span className="absolute -top-1.5 -right-1.5 w-4.5 h-4.5 bg-primary text-white text-[10px] flex items-center justify-center rounded-full font-black ring-2 ring-background shadow-md">
+                                    {activeOrders.length}
+                                </span>
                             </button>
                         )}
+                        <ThemeToggle />
                     </div>
                 </div>
 
-                {/* Main Category Tabs */}
-                <div className="flex overflow-x-auto hide-scrollbar pb-2 px-4 gap-2 bg-background border-t border-border/30 pt-2">
+                {/* Main Category Tabs — top-level only */}
+                <div className="flex overflow-x-auto hide-scrollbar py-2.5 px-4 gap-2 bg-secondary/30 border-t border-border/50">
                     {loadingMenu ? (
-                        <div className="text-xs text-muted-foreground animate-pulse py-1">Loading...</div>
+                        <div className="text-xs text-muted-foreground animate-pulse py-1.5">Loading categories...</div>
                     ) : (
-                        topLevelCats.map(cat => (
+                        categories.filter(c => !c.parent_id).map(cat => (
                             <button
-                                id={`tab-${cat.id}`}
                                 key={cat.id}
-                                onClick={() => handleScrollToCategory(cat.id)}
-                                className={`whitespace-nowrap px-4 py-1.5 rounded-full text-xs font-bold transition-all border ${
-                                    activeCategory === cat.id
-                                    ? 'bg-foreground text-background border-foreground shadow-sm'
-                                    : 'bg-secondary/40 text-muted-foreground border-transparent hover:bg-secondary'
-                                }`}
+                                onClick={() => { setActiveCategory(cat.id); setActiveSubCategory(null); }}
+                                className={`whitespace-nowrap px-4 py-2 rounded-2xl text-sm font-bold transition-all border ${activeCategory === cat.id
+                                    ? 'bg-primary text-primary-foreground border-primary shadow-md active:scale-95'
+                                    : 'bg-card/50 text-muted-foreground border-border/50 hover:bg-secondary active:scale-95'
+                                    }`}
                             >
                                 {cat.name}
                             </button>
                         ))
                     )}
                 </div>
+
+                {/* Subcategory Pills — shown when active category has children */}
+                {!loadingMenu && subCategories.length > 0 && (
+                    <div className="flex overflow-x-auto hide-scrollbar px-4 py-2 gap-2 border-t border-border/30 bg-background/60">
+                        <button
+                            onClick={() => setActiveSubCategory(null)}
+                            className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                !activeSubCategory
+                                    ? 'bg-primary/15 text-primary border-primary/40'
+                                    : 'bg-transparent text-muted-foreground border-border hover:bg-secondary'
+                            }`}
+                        >
+                            All
+                        </button>
+                        {subCategories.map(sub => (
+                            <button
+                                key={sub.id}
+                                onClick={() => setActiveSubCategory(activeSubCategory === sub.id ? null : sub.id)}
+                                className={`whitespace-nowrap px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                                    activeSubCategory === sub.id
+                                        ? 'bg-primary/15 text-primary border-primary/40'
+                                        : 'bg-transparent text-muted-foreground border-border hover:bg-secondary'
+                                }`}
+                            >
+                                {sub.name}
+                            </button>
+                        ))}
+                    </div>
+                )}
             </header>
 
             {/* ── Menu List ── */}
-            <main className="max-w-3xl mx-auto p-4 space-y-8">
+            <main className="max-w-3xl mx-auto p-4 space-y-4">
                 {loadingMenu ? (
                     [1, 2, 3].map(n => <div key={n} className="bg-card/70 backdrop-blur-md flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/40 animate-pulse h-32" />)
-                ) : searchQuery ? (
-                    /* Search Results */
-                    <div className="space-y-4">
-                        <h2 className="text-lg font-black px-1 text-muted-foreground">
-                            {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
-                        </h2>
-                        {searchResults.length > 0 ? searchResults.map((item) => (
-                            <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3 p-3 sm:gap-4 sm:p-4 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
-                                <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
-                                    {item.image_url ? (<img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />) : (<div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>)}
-                                </div>
-                                <div className="flex flex-col flex-grow justify-between min-w-0">
-                                    <div className="flex items-start justify-between gap-1.5">
-                                        <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight break-words pr-1">{item.name}</h3>
-                                        <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-[11px] sm:text-sm px-2 py-1 whitespace-nowrap">ETB {Number(item.base_price).toFixed(2)}</span>
-                                    </div>
-                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 uppercase font-bold tracking-tight text-left line-clamp-2">{item.description}</p>
-                                    <div className="flex items-center justify-end mt-2">
-                                        <button onClick={() => handleOpenExtras(item)} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold transition-all flex items-center gap-1 shadow-sm px-4 py-2 text-sm active:scale-90">
-                                            <Plus size={16} /> Add
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )) : (
-                            <div className="text-center py-12 text-muted-foreground bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50">
-                                No items found matching your search.
-                            </div>
-                        )}
-                    </div>
-                ) : (
-                    /* Category Sections — all rendered so scrollspy works */
-                    topLevelCats.map(cat => {
-                        const itemsInCat = menuItems.filter(i => i.is_active !== false && isItemInCat(i, cat.id));
-                        if (itemsInCat.length === 0) return null;
-
-                        const subCats = categories.filter(c => c.parent_id === cat.id);
-                        const directItems = itemsInCat.filter(i => i.category_id === cat.id);
-                        
-                        return (
-                            <section id={`cat-${cat.id}`} key={cat.id} className="scroll-mt-40">
-                                <div className="mb-4 px-1 flex flex-col items-center">
-                                    <h2 className="text-3xl font-black tracking-tight">{cat.name}</h2>
-                                    <div className="h-1.5 w-16 bg-primary rounded-full mt-2"></div>
-                                </div>
-                                
-                                {subCats.length > 0 && (
-                                    <div className="flex flex-wrap justify-center gap-2 mb-6 px-1">
-                                        {subCats.map(sub => (
-                                            <button 
-                                                key={sub.id}
-                                                onClick={() => {
-                                                    const el = document.getElementById(`subcat-${sub.id}`);
-                                                    if (el) {
-                                                        const offset = 180;
-                                                        const top = el.getBoundingClientRect().top + window.scrollY - offset;
-                                                        window.scrollTo({ top, behavior: 'smooth' });
-                                                    }
-                                                }}
-                                                className="px-4 py-2 bg-background border border-border shadow-sm rounded-full text-xs font-bold text-foreground hover:bg-secondary transition-colors"
-                                            >
-                                                {sub.name}
-                                            </button>
-                                        ))}
+                ) : currentItems.length > 0 ? (
+                    currentItems.map((item) => (
+                        <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3 p-3 sm:gap-4 sm:p-4 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
+                            {/* Image */}
+                            <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
+                                {item.image_url ? (
+                                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>
+                                )}
+                                {(item.is_fasting || categories.find(c => c.id === item.category_id)?.name.toLowerCase().includes('fasting')) && (
+                                    <div className="absolute bottom-2 left-2 bg-green-500/20 backdrop-blur-md text-green-600 dark:text-green-400 p-1 rounded-full border border-green-500/30" title="Fasting Meal">
+                                        🌿
                                     </div>
                                 )}
+                                {(item.allowed_global_extras && item.allowed_global_extras.length > 0) && (
+                                    <div className="absolute top-2 right-2 bg-primary/20 backdrop-blur-md text-primary p-1 rounded-full border border-primary/30" title="Extras Available">
+                                        <Tag size={10} />
+                                    </div>
+                                )}
+                            </div>
 
-                                <div className="space-y-8">
-                                    {directItems.length > 0 && (
-                                        <div className="space-y-4">
-                                            {directItems.map(item => renderMenuItem(item))}
-                                        </div>
-                                    )}
-                                    
-                                    {subCats.map(sub => {
-                                        const subItems = itemsInCat.filter(i => i.category_id === sub.id || i.extra_category_ids?.includes(sub.id));
-                                        if (subItems.length === 0) return null;
-                                        return (
-                                            <div id={`subcat-${sub.id}`} key={sub.id} className="scroll-mt-40 space-y-4">
-                                                <h3 className="text-xl font-black px-1 text-foreground/90">{sub.name}</h3>
-                                                {subItems.map(item => renderMenuItem(item))}
-                                            </div>
-                                        );
-                                    })}
+                            {/* Info */}
+                            <div className="flex flex-col flex-grow justify-between min-w-0">
+                                <div className="flex items-start justify-between gap-1.5 sm:gap-2">
+                                    <div className="min-w-0 flex-1 text-left">
+                                        <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight break-words pr-1">
+                                            {item.name}
+                                        </h3>
+                                        {item.average_rating > 0 && renderStars(item.average_rating, item.total_ratings || 0)}
+                                    </div>
+                                    <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-[11px] sm:text-sm px-2 py-1 sm:px-2.5 sm:py-1 whitespace-nowrap">
+                                        ETB {Number(item.base_price).toFixed(2)}
+                                    </span>
                                 </div>
-                            </section>
-                        );
-                    })
+
+                                <p className="text-[10px] sm:text-xs text-muted-foreground mt-1.5 uppercase font-bold tracking-tight text-left leading-relaxed line-clamp-2 sm:line-clamp-none">{item.description}</p>
+
+                                <div className="flex items-center justify-between mt-2">
+                                    <div className="flex flex-wrap gap-1">
+                                        {(item.ingredients && item.ingredients.length > 0) && item.ingredients.slice(0, 3).map((ing: string, idx: number) => (
+                                            <span key={idx} className="text-[9px] uppercase font-bold tracking-wider bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded border border-border/50">
+                                                {ing}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={() => handleOpenExtras(item)}
+                                        className="ml-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-md px-4 py-2 text-sm active:scale-90"
+                                        aria-label="Add to cart"
+                                    >
+                                        <Plus size={16} /> Add
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-12 text-muted-foreground bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50">
+                        No items found in this category.
+                    </div>
                 )}
             </main>
 

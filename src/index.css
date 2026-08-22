@@ -27,75 +27,79 @@
 
 @layer base {
   :root {
-    /* Background: Soft Light Greenish/Off-White - Slightly Darkened */
-    --background: 144 15% 95%;
-    /* Foreground/Text: Soft Black */
-    --foreground: 144 30% 12%;
+    /* Fana Kitchen — Light Mode */
+    /* Background: warm cream */
+    --background: 40 30% 97%;
+    /* Foreground: deep forest green text */
+    --foreground: 160 61% 10%;
 
-    --card: 144 10% 98%;
-    --card-foreground: 144 30% 12%;
+    --card: 40 20% 99%;
+    --card-foreground: 160 61% 10%;
 
-    --popover: 144 10% 98%;
-    --popover-foreground: 144 30% 12%;
+    --popover: 40 20% 99%;
+    --popover-foreground: 160 61% 10%;
 
-    /* Primary: Soft Emerald Green with more vibrancy */
-    --primary: 152 70% 35%;
-    --primary-foreground: 0 0% 100%;
+    /* Primary: Fana Dark Forest Green #0F3D2E */
+    --primary: 160 61% 15%;
+    --primary-foreground: 42 60% 92%;
 
-    --secondary: 144 15% 90%;
-    --secondary-foreground: 144 30% 18%;
+    --secondary: 40 20% 92%;
+    --secondary-foreground: 160 40% 20%;
 
-    --muted: 144 15% 90%;
-    --muted-foreground: 144 15% 40%;
+    --muted: 40 20% 92%;
+    --muted-foreground: 40 10% 50%;
 
-    --accent: 152 70% 35%;
-    --accent-foreground: 0 0% 100%;
+    /* Accent: Fana Gold #C49A3A */
+    --accent: 42 54% 50%;
+    --accent-foreground: 160 61% 10%;
 
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 144 15% 85%;
-    --input: 144 15% 85%;
-    --ring: 152 70% 35%;
+    --border: 40 20% 88%;
+    --input: 40 20% 88%;
+    /* Ring: gold focus */
+    --ring: 42 54% 50%;
 
     --radius: 1.25rem;
   }
 
   .dark {
-    /* Dark Theme: Soft dark sage green - Brightened for readability */
-    --background: 144 15% 22%;
-    --foreground: 0 0% 100%;
+    /* Fana Kitchen — Dark Mode */
+    --background: 160 40% 8%;
+    --foreground: 40 30% 95%;
 
-    --card: 144 15% 28%;
-    --card-foreground: 0 0% 100%;
+    --card: 160 35% 12%;
+    --card-foreground: 40 30% 95%;
 
-    --popover: 144 15% 28%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 160 35% 12%;
+    --popover-foreground: 40 30% 95%;
 
-    --primary: 152 60% 55%;
-    --primary-foreground: 144 20% 12%;
+    /* Gold as primary in dark mode */
+    --primary: 42 54% 55%;
+    --primary-foreground: 160 61% 8%;
 
-    --secondary: 144 15% 32%;
-    --secondary-foreground: 0 0% 100%;
+    --secondary: 160 30% 18%;
+    --secondary-foreground: 40 20% 85%;
 
-    --muted: 144 15% 32%;
-    --muted-foreground: 144 10% 75%;
+    --muted: 160 30% 18%;
+    --muted-foreground: 160 15% 60%;
 
-    --accent: 152 60% 55%;
-    --accent-foreground: 144 20% 12%;
+    --accent: 42 54% 55%;
+    --accent-foreground: 160 61% 8%;
 
     --destructive: 0 62.8% 45%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 144 15% 35%;
-    --input: 144 15% 35%;
-    --ring: 152 60% 55%;
+    --border: 160 25% 22%;
+    --input: 160 25% 22%;
+    --ring: 42 54% 55%;
   }
 
   body {
     background:
-      radial-gradient(circle at top right, hsla(var(--primary), 0.12), transparent 600px),
-      radial-gradient(circle at bottom left, hsla(var(--primary), 0.08), transparent 500px),
+      radial-gradient(circle at top right, hsla(var(--primary), 0.08), transparent 600px),
+      radial-gradient(circle at bottom left, hsla(var(--accent), 0.06), transparent 500px),
       linear-gradient(180deg, hsla(var(--background), 0) 0%, hsla(var(--background), 1) 100%),
       hsl(var(--background));
     background-attachment: fixed;
@@ -120,10 +124,10 @@
   }
 
   .bg-primary-gradient {
-    background: linear-gradient(135deg, hsla(152, 70%, 35%, 1) 0%, hsla(152, 60%, 45%, 1) 100%);
+    background: linear-gradient(135deg, hsl(160, 61%, 15%) 0%, hsl(160, 50%, 22%) 100%);
   }
 
   .dark .bg-primary-gradient {
-    background: linear-gradient(135deg, hsla(152, 50%, 45%, 1) 0%, hsla(152, 40%, 55%, 1) 100%);
+    background: linear-gradient(135deg, hsl(42, 54%, 45%) 0%, hsl(42, 54%, 55%) 100%);
   }
 }

@@ -92,7 +92,6 @@ const AdminOverview = () => {
         const { data } = await supabase
             .from('staff_calls')
             .select('*')
-            .eq('restaurant_id', restaurantId)
             .eq('status', 'pending')
             .order('created_at', { ascending: false });
         if (data) setCalls(data);
@@ -146,8 +145,7 @@ const AdminOverview = () => {
     };
 
     const resolveCall = async (id: string) => {
-        if (!restaurantId) return;
-        await supabase.from('staff_calls').update({ status: 'resolved' }).eq('id', id).eq('restaurant_id', restaurantId);
+        await supabase.from('staff_calls').update({ status: 'resolved' }).eq('id', id);
         setCalls(cur => cur.filter(c => c.id !== id));
     };
 

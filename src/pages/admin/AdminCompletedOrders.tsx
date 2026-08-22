@@ -79,10 +79,10 @@ const AdminCompletedOrders = () => {
         if (!restaurantId) return;
         const { error } = await supabase
             .from('orders')
-            .update({ status: 'resolved' })
+            .delete()
             .eq('id', orderId)
             .eq('restaurant_id', restaurantId);
-            
+
         if (!error) {
             setOrders(prev => prev.filter(o => o.id !== orderId));
         } else {
