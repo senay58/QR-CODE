@@ -121,6 +121,7 @@ const CustomerMenu = () => {
     const [callSuccess, setCallSuccess] = useState(false);
 
     const [cart, setCart] = useState<CartItem[]>([]);
+    const [justAddedId, setJustAddedId] = useState<string | null>(null);
     const [isCartOpen, setIsCartOpen] = useState(false);
     const [activeOrders, setActiveOrders] = useState<any[]>([]);
     const [isTrackingOpen, setIsTrackingOpen] = useState(false);
@@ -294,6 +295,9 @@ const CustomerMenu = () => {
         const cartKey = `${item.id}__${extrasKey}`;
         const extrasTotal = extras.reduce((s, e) => s + e.price, 0);
         const totalPrice = item.base_price + extrasTotal;
+
+        setJustAddedId(item.id);
+        setTimeout(() => setJustAddedId(null), 1000);
 
         setCart(prev => {
             const existing = prev.find(i => i.cartKey === cartKey);
@@ -512,14 +516,22 @@ const CustomerMenu = () => {
         </div>
     );
 
-    const renderMenuItem = (item: any) => (
-        <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3 p-3 sm:gap-4 sm:p-4 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
-                {item.image_url ? (
-                    <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
-                ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>
-                )}
+    const renderMenuItem = (item: any) => {
+        const catName = categories.find(c => c.id === item.category_id)?.name.toLowerCase() || '';
+        let patternClass = 'tibeb-pattern-bg';
+        if (catName.includes('breakfast') || catName.includes('morning')) patternClass = 'tibeb-pattern-roundel';
+        else if (catName.includes('sandwich') || catName.includes('wrap') || catName.includes('burger')) patternClass = 'tibeb-pattern-curved';
+
+        return (
+        <div key={item.id} className="relative bg-card/75 backdrop-blur-lg rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98] overflow-hidden">
+            <div className={`absolute inset-0 opacity-[0.15] dark:opacity-20 pointer-events-none ${patternClass}`} />
+            <div className="relative z-10 flex flex-row gap-3 p-3 sm:gap-4 sm:p-4 h-full w-full">
+                <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
+                    {item.image_url ? (
+                        <img src={item.image_url} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" loading="lazy" />
+                    ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>
+                    )}
                 {(item.is_fasting || categories.find(c => c.id === item.category_id)?.name.toLowerCase().includes('fasting')) && (
                     <div className="absolute bottom-2 left-2 bg-green-500/20 backdrop-blur-md text-green-600 dark:text-green-400 p-1 rounded-full border border-green-500/30" title="Fasting Meal">🌿</div>
                 )}
@@ -546,13 +558,14 @@ const CustomerMenu = () => {
                             <span key={idx} className="text-[9px] uppercase font-bold tracking-wider bg-secondary text-secondary-foreground px-1.5 py-0.5 rounded border border-border/50">{ing}</span>
                         ))}
                     </div>
-                    <button onClick={() => handleOpenExtras(item)} className="ml-auto bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-md px-4 py-2 text-sm active:scale-90" aria-label="Add to cart">
-                        <Plus size={16} /> Add
+                    <button onClick={() => handleOpenExtras(item)} className={`ml-auto rounded-xl font-bold transition-all flex items-center justify-center gap-1 shadow-sm hover:shadow-md px-4 py-2 text-sm active:scale-90 ${justAddedId === item.id ? 'bg-green-500 text-white' : 'bg-primary text-primary-foreground hover:bg-primary/90'}`} aria-label="Add to cart">
+                        {justAddedId === item.id ? <><CheckCircle2 size={16} /> Added</> : <><Plus size={16} /> Add</>}
                     </button>
                 </div>
             </div>
+            </div>
         </div>
-    );
+    )};
 
     return (
         <div className="min-h-screen bg-background text-foreground pb-36 font-sans selection:bg-primary/20 relative">
@@ -570,7 +583,7 @@ const CustomerMenu = () => {
                                     const parts = fullName.split(' ');
                                     const first = parts[0];
                                     const rest = parts.slice(1).join(' ');
-                                    return <><span style={{ color: 'var(--text-primary)' }}>{first}</span>{rest && <span style={{ color: 'var(--accent-tertiary)' }}> {rest}</span>}</>;
+                                    return <><span style={{ color: 'var(--text-primary)' }}>{first}</span>{rest && <span style={{ color: 'var(--accent-primary)' }}> {rest}</span>}</>;
                                 })()}
                             </h1>
                             <span className="text-[9px] text-muted-foreground font-black tracking-widest uppercase bg-secondary/80 self-start px-1.5 py-0.5 rounded border border-border leading-none mt-0.5">
@@ -913,7 +926,7 @@ const CustomerMenu = () => {
             )}
 
             {/* ── Floating Call Waiter FAB ── */}
-            {(!isCartOpen && !isTrackingOpen) && (
+            {(!isCartOpen && !isTrackingOpen && cartCount === 0) && (
                 <CallWaiterFAB
                     onCallWaiter={handleCallWaiter}
                 />
@@ -1011,7 +1024,7 @@ const CustomerMenu = () => {
                                 onClick={() => { handleAddToCart(extrasModal.item, selectedExtras); setExtrasModal(null); }}
                                 className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-widest bg-primary text-primary-foreground hover:bg-primary/90 transition-all shadow-lg active:scale-95 flex items-center justify-center gap-2"
                             >
-                                <Plus size={16} /> Add to Cart
+                                {justAddedId === extrasModal.item.id ? <><CheckCircle2 size={16} /> Added</> : <><Plus size={16} /> Add</>} to Cart
                             </button>
                         </div>
                     </div>
