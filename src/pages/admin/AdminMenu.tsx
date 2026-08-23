@@ -133,6 +133,7 @@ const AdminMenu = () => {
     const [itemExtraCats, setItemExtraCats] = useState<string[]>([]);
     const [itemAllowedExtras, setItemAllowedExtras] = useState<string[]>([]);
     const [itemFasting, setItemFasting] = useState(false);
+    const [itemSpecial, setItemSpecial] = useState(false);
     const [itemImg, setItemImg] = useState('');
     const [itemActive, setItemActive] = useState(true);
     const [itemSaving, setItemSaving] = useState(false);
@@ -242,6 +243,7 @@ const AdminMenu = () => {
             extra_category_ids: itemExtraCats,
             allowed_global_extras: itemAllowedExtras,
             is_fasting: itemFasting,
+            is_special: itemSpecial,
             image_url: itemImg.trim() || null,
             is_active: itemActive,
             sort_order: editingItem ? editingItem.sort_order : items.length,
@@ -258,6 +260,7 @@ const AdminMenu = () => {
             setItemName(''); setItemDesc(''); setItemPrice(''); setItemCat('');
             setItemExtraCats([]); setItemImg(''); setItemAllowedExtras([]);
             setItemFasting(false);
+            setItemSpecial(false);
             setItemActive(true);
             setEditingItem(null);
             fetchData();
@@ -650,12 +653,23 @@ const AdminMenu = () => {
                                 <label className="flex items-center gap-2 cursor-pointer group mb-2">
                                     <input
                                         type="checkbox"
+                                        checked={itemSpecial}
+                                        onChange={e => setItemSpecial(e.target.checked)}
+                                        className="w-4 h-4 accent-amber-500 rounded bg-background border-border"
+                                    />
+                                    <span className="text-sm font-bold text-foreground group-hover:text-amber-500 transition-colors flex items-center gap-1.5">
+                                        ⭐ Feature as Special
+                                    </span>
+                                </label>
+                                <label className="flex items-center gap-2 cursor-pointer group mb-2">
+                                    <input
+                                        type="checkbox"
                                         checked={itemFasting}
                                         onChange={e => setItemFasting(e.target.checked)}
                                         className="w-4 h-4 accent-green-600 rounded bg-background border-border"
                                     />
                                     <span className="text-sm font-bold text-foreground group-hover:text-green-600 transition-colors flex items-center gap-1.5">
-                                        Mark as Fasting Meal
+                                        🌿 Mark as Fasting Meal
                                     </span>
                                 </label>
 
@@ -691,7 +705,7 @@ const AdminMenu = () => {
                                     <Check size={15} /> {itemSaving ? 'Saving...' : (editingItem ? 'Update Item' : 'Add Item')}
                                 </button>
                                 {editingItem && (
-                                    <button onClick={() => { setEditingItem(null); setItemName(''); setItemDesc(''); setItemPrice(''); setItemCat(''); setItemExtraCats([]); setItemImg(''); setItemAllowedExtras([]); setItemFasting(false); }} className={cancelBtnCls}>
+                                    <button onClick={() => { setEditingItem(null); setItemName(''); setItemDesc(''); setItemPrice(''); setItemCat(''); setItemExtraCats([]); setItemImg(''); setItemAllowedExtras([]); setItemFasting(false); setItemSpecial(false); }} className={cancelBtnCls}>
                                         <X size={15} />
                                     </button>
                                 )}
@@ -785,6 +799,7 @@ const AdminMenu = () => {
                                                                     setItemExtraCats(item.extra_category_ids || []);
                                                                     setItemAllowedExtras(item.allowed_global_extras || []);
                                                                     setItemFasting(item.is_fasting || false);
+                                                                    setItemSpecial(item.is_special || false);
                                                                     setItemImg(item.image_url || '');
                                                                     setItemActive(item.is_active !== false);
                                                                     window.scrollTo(0, 0);

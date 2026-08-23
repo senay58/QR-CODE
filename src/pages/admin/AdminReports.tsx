@@ -177,7 +177,7 @@ const AdminReports = () => {
 
             {/* Formal Header for Print */}
             <div className="hidden print:block print-header mb-8 text-center border-b-2 border-primary pb-6">
-                <h1 className="text-4xl font-black tracking-tighter text-primary uppercase">FANA <span className="text-foreground">KITCHEN</span></h1>
+                <h1 className="text-4xl font-black tracking-tighter text-primary uppercase" style={{ fontFamily: 'var(--font-display)', fontStyle: 'normal' }}>FANA <span className="text-foreground">KITCHEN</span></h1>
                 <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.3em] mt-1">Daily Operations &amp; Sales Report</p>
                 <div className="mt-4 flex justify-between text-[10px] font-bold uppercase text-muted-foreground">
                     <span>Generated: {new Date().toLocaleString()}</span>

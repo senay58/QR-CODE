@@ -4,6 +4,8 @@ import { ThemeToggle } from '../components/ThemeToggle';
 import { Bell, Star, ShoppingCart, Plus, Minus, X, ClipboardList, Download, Tag, UtensilsCrossed, CheckCircle2, Search } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import html2canvas from 'html2canvas';
+import SpecialsCarousel from '../components/SpecialsCarousel';
+import CallWaiterFAB from '../components/CallWaiterFAB';
 
 interface CartExtra {
     id: string;
@@ -478,7 +480,7 @@ const CustomerMenu = () => {
         setSavingImage(true);
         try {
             receiptRef.current.style.display = 'block';
-            const canvas = await html2canvas(receiptRef.current, { scale: 2, backgroundColor: '#ffffff' });
+            const canvas = await html2canvas(receiptRef.current, { scale: 2, backgroundColor: null });
             receiptRef.current.style.display = 'none';
             const image = canvas.toDataURL('image/png');
             const link = document.createElement('a');
@@ -530,10 +532,10 @@ const CustomerMenu = () => {
             <div className="flex flex-col flex-grow justify-between min-w-0">
                 <div className="flex items-start justify-between gap-1.5 sm:gap-2">
                     <div className="min-w-0 flex-1 text-left">
-                        <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight break-words pr-1">{item.name}</h3>
+                        <h3 className="font-bold text-sm sm:text-base leading-tight break-words pr-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{item.name}</h3>
                         {item.average_rating > 0 && renderStars(item.average_rating, item.total_ratings || 0)}
                     </div>
-                    <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-[11px] sm:text-sm px-2 py-1 sm:px-2.5 sm:py-1 whitespace-nowrap">
+                    <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-[11px] sm:text-sm px-2 py-1 sm:px-2.5 sm:py-1 whitespace-nowrap tabular-prices">
                         ETB {Number(item.base_price).toFixed(2)}
                     </span>
                 </div>
@@ -562,13 +564,13 @@ const CustomerMenu = () => {
                     {/* Top Row */}
                     <div className="flex items-center justify-between">
                         <div className="flex flex-col">
-                            <h1 className="text-xl font-black tracking-tighter text-foreground leading-none">
+                            <h1 className="text-2xl font-black tracking-tighter leading-none" style={{ fontFamily: 'var(--font-display)', fontStyle: 'normal' }}>
                                 {(() => {
                                     const fullName = restaurant?.brand_name || restaurant?.name || 'Fana Kitchen';
                                     const parts = fullName.split(' ');
                                     const first = parts[0];
                                     const rest = parts.slice(1).join(' ');
-                                    return <>{first}{rest && <span className="text-primary"> {rest}</span>}</>;
+                                    return <><span style={{ color: 'var(--text-primary)' }}>{first}</span>{rest && <span style={{ color: 'var(--accent-tertiary)' }}> {rest}</span>}</>;
                                 })()}
                             </h1>
                             <span className="text-[9px] text-muted-foreground font-black tracking-widest uppercase bg-secondary/80 self-start px-1.5 py-0.5 rounded border border-border leading-none mt-0.5">
@@ -634,36 +636,24 @@ const CustomerMenu = () => {
 
             {/* ── Menu List ── */}
             <main className="max-w-3xl mx-auto p-4 space-y-8">
+                {/* Specials Carousel */}
+                {!loadingMenu && !searchQuery && (
+                    <SpecialsCarousel 
+                        items={menuItems.filter(i => i.is_special && i.is_active !== false).slice(0, 6)} 
+                        onAdd={handleOpenExtras} 
+                    />
+                )}
+
                 {loadingMenu ? (
                     [1, 2, 3].map(n => <div key={n} className="bg-card/70 backdrop-blur-md flex flex-row gap-3.5 p-3.5 rounded-[1.5rem] shadow-sm border border-border/40 animate-pulse h-32" />)
                 ) : searchQuery ? (
                     /* Search Results */
                     <div className="space-y-4">
-                        <h2 className="text-lg font-black px-1 text-muted-foreground">
+                        <h2 className="text-lg font-black px-1 text-muted-foreground" style={{ fontFamily: 'var(--font-display)' }}>
                             {searchResults.length} result{searchResults.length !== 1 ? 's' : ''} for "{searchQuery}"
                         </h2>
-                        {searchResults.length > 0 ? searchResults.map((item) => (
-                            <div key={item.id} className="bg-card/75 backdrop-blur-lg flex flex-row gap-3 p-3 sm:gap-4 sm:p-4 rounded-[1.5rem] shadow-sm border border-border/40 hover:shadow-md transition-all active:scale-[0.98]">
-                                <div className="w-24 h-24 sm:w-32 sm:h-32 shrink-0 rounded-[1.2rem] bg-secondary/40 overflow-hidden relative border border-border/40 shadow-inner">
-                                    {item.image_url ? (<img src={item.image_url} alt={item.name} className="w-full h-full object-cover" loading="lazy" />) : (<div className="w-full h-full flex items-center justify-center text-2xl">🥪</div>)}
-                                </div>
-                                <div className="flex flex-col flex-grow justify-between min-w-0">
-                                    <div className="flex items-start justify-between gap-1.5">
-                                        <h3 className="font-bold text-foreground text-sm sm:text-base leading-tight break-words pr-1">{item.name}</h3>
-                                        <span className="shrink-0 bg-primary/10 text-primary font-extrabold rounded-lg border border-primary/20 text-[11px] sm:text-sm px-2 py-1 whitespace-nowrap">ETB {Number(item.base_price).toFixed(2)}</span>
-                                    </div>
-                                    <p className="text-[10px] sm:text-xs text-muted-foreground mt-1 uppercase font-bold tracking-tight text-left line-clamp-2">{item.description}</p>
-                                    <div className="flex items-center justify-end mt-2">
-                                        <button onClick={() => handleOpenExtras(item)} className="bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl font-bold transition-all flex items-center gap-1 shadow-sm px-4 py-2 text-sm active:scale-90">
-                                            <Plus size={16} /> Add
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        )) : (
-                            <div className="text-center py-12 text-muted-foreground bg-card/50 backdrop-blur-sm rounded-2xl border border-border/50">
-                                No items found matching your search.
-                            </div>
+                        {searchResults.length > 0 ? searchResults.map((item) => renderMenuItem(item)) : (
+                            <div className="py-12 text-center text-muted-foreground font-bold">No items found matching "{searchQuery}".</div>
                         )}
                     </div>
                 ) : (
@@ -678,8 +668,8 @@ const CustomerMenu = () => {
                         return (
                             <section id={`cat-${cat.id}`} key={cat.id} className="scroll-mt-40">
                                 <div className="mb-4 px-1 flex flex-col items-center">
-                                    <h2 className="text-3xl font-black tracking-tight">{cat.name}</h2>
-                                    <div className="h-1.5 w-16 bg-primary rounded-full mt-2"></div>
+                                    <h2 className="text-3xl font-black tracking-tight" style={{ fontFamily: 'var(--font-display)', color: 'var(--accent-primary)' }}>{cat.name}</h2>
+                                    <div className="tibeb-pattern h-2 w-24 mt-2 rounded-full opacity-90"></div>
                                 </div>
                                 
                                 {subCats.length > 0 && (
@@ -715,7 +705,7 @@ const CustomerMenu = () => {
                                         if (subItems.length === 0) return null;
                                         return (
                                             <div id={`subcat-${sub.id}`} key={sub.id} className="scroll-mt-40 space-y-4">
-                                                <h3 className="text-xl font-black px-1 text-foreground/90">{sub.name}</h3>
+                                                <h3 className="text-xl font-black px-1" style={{ fontFamily: 'var(--font-display)', color: 'var(--text-primary)' }}>{sub.name}</h3>
                                                 {subItems.map(item => renderMenuItem(item))}
                                             </div>
                                         );
@@ -904,35 +894,30 @@ const CustomerMenu = () => {
                 </div>
             )}
 
-            {/* ── Floating Cart Button (Consolidated) ── */}
-            <div className={`fixed bottom-6 left-0 right-0 px-4 pointer-events-none flex justify-center ${isCartOpen ? 'z-[60]' : 'z-50'}`}>
-                {cartCount > 0 && !isCartOpen ? (
+            {/* ── Floating Cart Button ── */}
+            {cartCount > 0 && !isCartOpen && (
+                <div className="fixed bottom-6 left-0 right-0 px-4 pointer-events-none flex justify-center z-50">
                     <button
                         onClick={() => setIsCartOpen(true)}
-                        className="pointer-events-auto backdrop-blur-xl shadow-2xl border border-white/20 flex items-center justify-between px-6 w-full max-w-sm py-4 rounded-[1.5rem] font-bold text-lg bg-primary/90 text-primary-foreground hover:bg-primary transition-all hover:-translate-y-1 active:scale-95 shadow-primary/30"
+                        className="pointer-events-auto backdrop-blur-xl shadow-2xl border border-white/20 flex items-center justify-between px-6 w-full max-w-sm py-4 rounded-[1.5rem] font-bold text-lg transition-all hover:-translate-y-1 active:scale-95"
+                        style={{ background: 'var(--accent-primary)', color: 'var(--surface)' }}
                     >
                         <div className="flex items-center gap-2">
-                            <div className="bg-white text-primary w-6 h-6 rounded-full flex items-center justify-center text-sm font-black shadow-sm">{cartCount}</div>
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm font-black shadow-sm"
+                                style={{ background: 'var(--surface)', color: 'var(--accent-primary)' }}>{cartCount}</div>
                             {isApartment ? 'View Order' : 'View Selections'}
                         </div>
-                        <span>ETB {cartTotal.toFixed(2)}</span>
+                        <span className="tabular-nums">ETB {cartTotal.toFixed(2)}</span>
                     </button>
-                ) : !isCartOpen && (
-                    <button
-                        onClick={handleCallWaiter}
-                        disabled={callingWaiter || callSuccess || tableNumber === 'Unknown'}
-                        className={`pointer-events-auto backdrop-blur-xl shadow-2xl flex items-center justify-center gap-2 w-full max-w-sm py-4 rounded-[1.5rem] font-bold text-lg transition-all active:scale-95 border ${callSuccess
-                            ? 'bg-green-500/90 text-white border-green-500/50'
-                            : callingWaiter
-                                ? 'bg-muted/90 text-muted-foreground cursor-wait border-border'
-                                : 'bg-card/90 text-foreground border-border/50 hover:bg-secondary hover:-translate-y-1'
-                            }`}
-                    >
-                        <Bell size={20} className={callingWaiter ? 'animate-pulse' : ''} />
-                        {callSuccess ? 'Waiter Coming!' : callingWaiter ? 'Notifying...' : 'Call Waiter'}
-                    </button>
-                )}
-            </div>
+                </div>
+            )}
+
+            {/* ── Floating Call Waiter FAB ── */}
+            {(!isCartOpen && !isTrackingOpen) && (
+                <CallWaiterFAB
+                    onCallWaiter={handleCallWaiter}
+                />
+            )}
 
             {/* ── Hidden Receipt for Image Export ── */}
             <div
@@ -941,32 +926,38 @@ const CustomerMenu = () => {
                     display: 'none',
                     width: '400px',
                     padding: '32px',
-                    background: '#ffffff',
-                    color: '#111111',
-                    fontFamily: 'system-ui, sans-serif',
+                    background: 'var(--bg)',
+                    color: 'var(--text-primary)',
+                    fontFamily: 'var(--font-sans)',
                 }}
             >
-                <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2px solid #e5e7eb', paddingBottom: '20px' }}>
-                    <div style={{ fontSize: '24px', fontWeight: '900', letterSpacing: '-0.05em' }}>
-                        {restaurant?.name.split(' ')[0] || 'LOGO'}<span style={{ color: '#2EA066' }}>{restaurant?.name.split(' ').slice(1).join(' ') || ''}</span>
+                <div style={{ textAlign: 'center', marginBottom: '24px', borderBottom: '2px dashed var(--border)', paddingBottom: '20px' }}>
+                    <div style={{ fontSize: '28px', fontWeight: '900', letterSpacing: '-0.02em', fontFamily: 'var(--font-display)' }}>
+                        {restaurant?.name.split(' ')[0] || 'LOGO'}<span style={{ color: 'var(--accent-primary)' }}>{restaurant?.name.split(' ').slice(1).join(' ') || ''}</span>
                     </div>
-                    <div style={{ fontSize: '12px', color: '#666', marginTop: '6px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                    <div style={{ fontSize: '12px', color: 'var(--text-secondary)', marginTop: '8px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                         Order ID: {personalizedLabel}
                     </div>
                 </div>
 
                 <div style={{ marginBottom: '20px' }}>
                     {cart.map(item => (
-                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', padding: '8px 12px', background: '#f9fafb', borderRadius: '8px' }}>
-                            <div style={{ fontWeight: '700', fontSize: '14px' }}>{item.quantity}× {item.name}</div>
-                            <span style={{ fontWeight: '700', fontSize: '14px', color: '#2EA066' }}>ETB {(item.price * item.quantity).toFixed(0)}</span>
+                        <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', padding: '12px 16px', background: 'var(--surface)', borderRadius: '12px', border: '1px solid var(--border)' }}>
+                            <div style={{ fontWeight: '700', fontSize: '14px', fontFamily: 'var(--font-display)' }}>{item.quantity}x {item.name}</div>
+                            <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--text-primary)', fontVariantNumeric: 'tabular-nums' }}>ETB {(item.price * item.quantity).toFixed(0)}</span>
                         </div>
                     ))}
                 </div>
 
-                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid #e5e7eb', paddingTop: '16px', marginBottom: '20px' }}>
-                    <span style={{ fontWeight: '900', fontSize: '18px' }}>TOTAL</span>
-                    <span style={{ fontWeight: '900', fontSize: '22px', color: '#2EA066' }}>ETB {cartTotal.toFixed(0)}</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '2px solid var(--border)', paddingTop: '16px', marginBottom: '20px' }}>
+                    <span style={{ fontSize: '20px', fontWeight: '900', fontFamily: 'var(--font-display)' }}>TOTAL</span>
+                    <span style={{ fontSize: '24px', fontWeight: '900', color: 'var(--accent-primary)', fontVariantNumeric: 'tabular-nums' }}>
+                        ETB {cart.reduce((sum, item) => sum + (item.price * item.quantity), 0).toFixed(0)}
+                    </span>
+                </div>
+
+                <div style={{ textAlign: 'center', color: 'var(--text-secondary)', fontSize: '12px', fontWeight: 'bold', fontFamily: 'var(--font-sans)' }}>
+                    Powered by QR Menu
                 </div>
             </div>
 

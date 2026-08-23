@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
+import { Sun, Moon } from 'lucide-react';
 import { cn } from '../lib/utils';
 
 export const ThemeToggle = ({ className }: { className?: string }) => {
@@ -33,13 +33,27 @@ export const ThemeToggle = ({ className }: { className?: string }) => {
         <button
             onClick={toggleTheme}
             className={cn(
-                "p-2 rounded-full transition-colors flex items-center justify-center",
-                "bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                "relative flex items-center justify-center p-2 rounded-full overflow-hidden transition-all duration-250 active:scale-95",
                 className
             )}
+            style={{ 
+                backgroundColor: 'var(--surface)',
+                border: '1px solid var(--border)' 
+            }}
             aria-label="Toggle Theme"
         >
-            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+            <div 
+                className={cn(
+                    "relative flex items-center justify-center transition-all duration-250 transform",
+                    theme === 'dark' ? "rotate-90 scale-110" : "rotate-0 scale-100"
+                )}
+            >
+                {theme === 'light' ? (
+                    <Sun size={20} style={{ color: 'var(--accent-secondary)' }} strokeWidth={2.5} />
+                ) : (
+                    <Moon size={20} style={{ color: 'var(--accent-primary)', filter: 'drop-shadow(0 0 2px var(--accent-primary))' }} strokeWidth={2.5} />
+                )}
+            </div>
         </button>
     );
 };

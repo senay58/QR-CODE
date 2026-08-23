@@ -126,10 +126,10 @@ const AdminDashboard = () => {
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col items-start min-w-0 flex-1">
-                                <h1 className="text-xl font-black tracking-tighter text-foreground uppercase group-hover:text-primary transition-colors truncate w-full text-left">
+                                <h1 className="text-xl font-black tracking-tighter text-foreground uppercase group-hover:text-primary transition-colors truncate w-full text-left" style={{ fontFamily: 'var(--font-display)', fontStyle: 'normal' }}>
                                     {nameFirst}
                                 </h1>
-                                <h1 className="text-xl font-black tracking-tighter text-primary uppercase transition-colors truncate w-full text-left -mt-1 shadow-primary/20">
+                                <h1 className="text-xl font-black tracking-tighter text-primary uppercase transition-colors truncate w-full text-left -mt-1 shadow-primary/20" style={{ fontFamily: 'var(--font-display)', fontStyle: 'normal' }}>
                                     {nameRest}
                                 </h1>
                             </div>
@@ -245,7 +245,7 @@ const AdminDashboard = () => {
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="flex justify-between items-center mb-10 shrink-0">
-                            <h1 className="text-xl font-black tracking-tighter">
+                            <h1 className="text-xl font-black tracking-tighter" style={{ fontFamily: 'var(--font-display)', fontStyle: 'normal' }}>
                                 {nameFirst}<span className="text-primary">{nameRest}</span>
                             </h1>
                             <button onClick={() => setIsMobileMenuOpen(false)}>
